@@ -1,0 +1,89 @@
+[2026-11-13T14:23:09.143] 
+[2026-11-13T14:23:09.146] ================================================================================
+[2026-11-13T14:23:09.148] NEW QUESTION: Have a look at the example resume file. Give me a summary of Jake Ryan's projects.
+[2026-11-13T14:23:09.149] MODEL: openai/gpt-oss-120b
+[2026-11-13T14:23:09.150] 
+[2026-11-13T14:23:09.152] MODEL REQUEST #1
+[2026-11-13T14:23:10.051] MODEL REQUESTED TOOL: list_files({})
+[2026-11-13T14:23:10.061] TOOL EXECUTED: list_files()
+[2026-11-13T14:23:10.072] TOOL RESULT PROVIDED TO MODEL:
+----- BEGIN RESULT -----
+resume.pdf
+----- END RESULT -----
+[2026-11-13T14:23:10.075] 
+[2026-11-13T14:23:10.080] MODEL REQUEST #2
+[2026-11-13T14:23:10.594] MODEL REQUESTED TOOL: get_pdf_info({"filename": "resume.pdf"})
+[2026-11-13T14:23:10.636] TOOL EXECUTED: get_pdf_info(filename="resume.pdf")
+[2026-11-13T14:23:10.637] TOOL RESULT PROVIDED TO MODEL:
+----- BEGIN RESULT -----
+Filename: resume.pdf
+Size: 104989 bytes
+Pages: 1
+----- END RESULT -----
+[2026-11-13T14:23:10.639] 
+[2026-11-13T14:23:10.640] MODEL REQUEST #3
+[2026-11-13T14:23:11.112] MODEL REQUESTED TOOL: read_pdf_pages({"end_page": 1, "filename": "resume.pdf", "start_page": 1})
+[2026-11-13T14:23:11.175] TOOL EXECUTED: read_pdf_pages(filename="resume.pdf", start_page=1, end_page=1)
+[2026-11-13T14:23:11.177] PDF CONTENT PROVIDED TO MODEL FROM "resume.pdf" PAGES 1-1:
+----- BEGIN PDF CONTENT -----
+========== PAGE 1 ==========
+0001 | Jake Ryan
+0002 | 123-456-7890 | jake@su.edu | linkedin.com/in/jake | github.com/jake
+0003 | Education
+0004 | Southwestern University Georgetown, TX
+0005 | Bachelor of Arts in Computer Science, Minor in Business Aug. 2018 – May 2021
+0006 | Blinn College Bryan, TX
+0007 | Associate’s in Liberal Arts Aug. 2014 – May 2018
+0008 | Experience
+0009 | Undergraduate Research Assistant June 2020 – Present
+0010 | Texas A&M University College Station, TX
+0011 | • Developed a REST API using FastAPI and PostgreSQL to store data from learning management systems
+0012 | • Developed a full-stack web application using Flask, React, PostgreSQL and Docker to analyze GitHub data
+0013 | • Explored ways to visualize GitHub collaboration in a classroom setting
+0014 | Information Technology Support Specialist Sep. 2018 – Present
+0015 | Southwestern University Georgetown, TX
+0016 | • Communicate with managers to set up campus computers used on campus
+0017 | • Assess and troubleshoot computer problems brought by students, faculty and staff
+0018 | • Maintain upkeep of computers, classroom equipment, and 200 printers across campus
+0019 | Artificial Intelligence Research Assistant May 2019 – July 2019
+0020 | Southwestern University Georgetown, TX
+0021 | • Explored methods to generate video game dungeons based off of The Legend of Zelda
+0022 | • Developed a game in Java to test the generated dungeons
+0023 | • Contributed 50K+ lines of code to an established codebase via Git
+0024 | • Conducted a human subject study to determine which video game dungeon generation technique is enjoyable
+0025 | • Wrote an 8-page paper and gave multiple presentations on-campus
+0026 | • Presented virtually to the World Conference on Computational Intelligence
+0027 | Projects
+0028 | Gitlytics | Python, Flask, React, PostgreSQL, Docker June 2020 – Present
+0029 | • Developed a full-stack web application using with Flask serving a REST API with React as the frontend
+0030 | • Implemented GitHub OAuth to get data from user’s repositories
+0031 | • Visualized GitHub data to show collaboration
+0032 | • Used Celery and Redis for asynchronous tasks
+0033 | Simple Paintball | Spigot API, Java, Maven, TravisCI, Git May 2018 – May 2020
+0034 | • Developed a Minecraft server plugin to entertain kids during free time for a previous job
+0035 | • Published plugin to websites gaining 2K+ downloads and an average 4.5/5-star review
+0036 | • Implemented continuous delivery using TravisCI to build the plugin upon new a release
+0037 | • Collaborated with Minecraft server administrators to suggest features and get feedback about the plugin
+0038 | Technical Skills
+0039 | Languages: Java, Python, C/C++, SQL (Postgres), JavaScript, HTML/CSS, R
+0040 | Frameworks: React, Node.js, Flask, JUnit, WordPress, Material-UI, FastAPI
+0041 | Developer Tools: Git, Docker, TravisCI, Google Cloud Platform, VS Code, Visual Studio, PyCharm, IntelliJ, Eclipse
+0042 | Libraries: pandas, NumPy, Matplotlib
+
+----- END PDF CONTENT -----
+[2026-11-13T14:23:11.178] 
+[2026-11-13T14:23:11.180] MODEL REQUEST #4
+[2026-11-13T14:23:12.443] 
+[2026-11-13T14:23:12.446] FINAL ANSWER:
+----- BEGIN FINAL ANSWER -----
+**Jake Ryan – Projects (from resume.pdf, page 1)**  
+
+| Project | Technologies | What he built / key achievements |
+|---------|--------------|-----------------------------------|
+| **Gitlytics** | Python, Flask, React, PostgreSQL, Docker, Celery, Redis, GitHub OAuth | • Full‑stack web app that serves a REST API (Flask) and a React front‑end.<br>• Uses GitHub OAuth to pull a user’s repository data.<br>• Visualizes GitHub activity/collaboration.<br>• Handles background jobs with Celery + Redis for asynchronous processing. *(lines 28‑32)* |
+| **Simple Paintball** | Spigot API, Java, Maven, TravisCI, Git | • Minecraft server plugin (Spigot) created to give kids a fun “paintball”‑style game during free time at a previous job.<br>• Published the plugin publicly, receiving 2 K+ downloads and an average 4.5‑star rating.<br>• Set up continuous delivery with TravisCI to automatically build the plugin on each release.<br>• Worked with server administrators to gather feedback and add features. *(lines 33‑37)* |
+
+**Summary**  
+Jake Ryan has built two notable personal projects. *Gitlytics* is a modern, containerized full‑stack application that integrates with GitHub to collect and display collaboration metrics, leveraging a REST API, OAuth authentication, and asynchronous task processing. *Simple Paintball* is a Java‑based Minecraft server plugin that provides an entertaining paintball‑style game, achieved significant public adoption, and incorporates CI/CD practices for reliable releases. Both projects demonstrate his ability to develop end‑to‑end solutions, work with web and game development stacks, and manage deployment pipelines.
+----- END FINAL ANSWER -----
+[2026-11-13T14:23:12.448] ================================================================================
