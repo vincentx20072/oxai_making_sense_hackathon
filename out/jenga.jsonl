@@ -1,4 +1,0 @@
-{"claim_id": "4796d8c330b4:c1", "verdict": "post-rationalisation risk", "score": 68, "E_lex": 0.7, "precision": 0.67, "timing_flag": false, "bridging_terms": ["jake", "ryan", "python"], "causal": null}
-{"claim_id": "4796d8c330b4:c2", "verdict": "post-rationalised", "score": 33, "E_lex": 0.5, "precision": 0.67, "timing_flag": true, "bridging_terms": [], "causal": null}
-{"claim_id": "4796d8c330b4:c3", "verdict": "grounded", "score": 92, "E_lex": 1.0, "precision": 0.83, "timing_flag": false, "bridging_terms": [], "causal": null}
-{"claim_id": "4796d8c330b4:c4", "verdict": "uncited", "score": 5, "E_lex": 0.0, "precision": null, "timing_flag": false, "bridging_terms": ["python", "jake", "ryan", "fit"], "causal": null}

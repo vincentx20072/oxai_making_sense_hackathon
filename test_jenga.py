@@ -69,9 +69,7 @@ def _run(policy, tmp):
 
 
 def test_original_log_parses():
-    reps = jenga.analyse_log_text(
-        (HERE / "samples" / "agent4.log").read_text(encoding="utf-8")
-    )
+    reps = jenga.analyse_log_text((HERE / "samples" / "agent4.log").read_text())
     assert len(reps) == 1
     claims = reps[0]["claims"]
     assert len(claims) == 3
@@ -108,6 +106,73 @@ def test_rationaliser_is_caught():
         assert k["plant"]["outcome"] == "overrides and cites"
         html = jenga.render_html(rep)
         assert "Causal replay" in html and "overrides and cites" in html
+
+
+# ------------------------------------------------------------------
+# Web app (fake agent, temporary data dir, no API calls)
+# ------------------------------------------------------------------
+
+def _web_client(tmp):
+    import app as webapp
+    webapp.app.config.update(TESTING=True, DATA_DIR=Path(tmp),
+                             CLIENT_FACTORY=lambda: FakeClient(honest))
+    return webapp, webapp.app.test_client()
+
+
+def _wait_done(webapp, run_id, timeout=20):
+    import time
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        meta = webapp.load_meta(run_id)
+        if meta["status"] in ("done", "error") and (not meta.get("auto_jenga") or meta.get("analysed")
+                                                    or meta["status"] == "error"):
+            return meta
+        time.sleep(0.05)
+    raise TimeoutError(run_id)
+
+
+def test_web_run_analyse_and_log():
+    import io
+    with tempfile.TemporaryDirectory() as tmp:
+        webapp, c = _web_client(tmp)
+        pdf = (HERE / "ai_files" / "resume.pdf").read_bytes()
+        r = c.post("/runs", data={"question": QUESTION, "auto_jenga": "on",
+                                  "pdfs": (io.BytesIO(pdf), "resume.pdf")},
+                   content_type="multipart/form-data")
+        assert r.status_code == 302, r.data
+        run_id = r.headers["Location"].rstrip("/").split("/")[-1]
+        meta = _wait_done(webapp, run_id)
+        assert meta["status"] == "done", meta
+        assert meta["analysed"] and meta["trust_score"] is not None
+        for tab in ("answer", "trust", "log"):
+            page = c.get(f"/runs/{run_id}?tab={tab}")
+            assert page.status_code == 200
+        assert b'class="cite"' in c.get(f"/runs/{run_id}?tab=answer").data
+        log_page = c.get(f"/runs/{run_id}?tab=log").data
+        assert b"Reasoning" in log_page and b"Search" in log_page
+        assert c.get(f"/runs/{run_id}/jenga.html?embed=1").status_code == 200
+        assert c.get(f"/runs/{run_id}/files/resume.pdf").status_code == 200
+        assert c.get(f"/api/runs/{run_id}").json["status"] == "done"
+        assert c.post(f"/runs/{run_id}/delete").status_code == 302
+        assert c.get(f"/runs/{run_id}").status_code == 404
+
+
+def test_web_rejects_non_pdf_and_imports_log():
+    import io
+    with tempfile.TemporaryDirectory() as tmp:
+        webapp, c = _web_client(tmp)
+        r = c.post("/runs", data={"question": "x?", "pdfs": (io.BytesIO(b"hello"), "notes.txt")},
+                   content_type="multipart/form-data")
+        assert r.status_code == 302 and not any(Path(tmp, "runs").iterdir())
+        r = c.post("/runs", data={"question": "x?", "pdfs": (io.BytesIO(b"not a pdf"), "fake.pdf")},
+                   content_type="multipart/form-data")
+        assert r.status_code == 302 and not any(Path(tmp, "runs").iterdir())
+        log = (HERE / "samples" / "agent4.log").read_bytes()
+        r = c.post("/import", data={"log": (io.BytesIO(log), "agent4.log")},
+                   content_type="multipart/form-data")
+        assert r.status_code == 302
+        run_id = r.headers["Location"].split("/runs/")[1].split("?")[0]
+        assert webapp.load_meta(run_id)["trust_score"] == 83
 
 
 if __name__ == "__main__":

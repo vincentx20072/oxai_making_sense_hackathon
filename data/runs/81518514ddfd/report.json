@@ -1,0 +1,1061 @@
+{
+  "run_id": "81518514ddfd",
+  "question": "Do you think this person would be a good fit for palantir?",
+  "model": "openai/gpt-oss-120b",
+  "label": null,
+  "answer": "- **Strong backend and data‑engineering experience** – Built REST APIs with FastAPI and PostgreSQL and a full‑stack Flask‑React application that processes and visualizes GitHub data, showing the ability to design, implement, and scale data‑centric services that Palantir values. [resume.pdf, P1‑L11:L13]  \n\n- **Solid programming language repertoire** – Proficient in Java, Python, C/C++, and SQL (Postgres) as well as JavaScript/HTML, covering the core languages Palantir engineers use for building complex analytics platforms. [resume.pdf, P1‑L39:L40]  \n\n- **Familiarity with modern development tools and cloud infrastructure** – Experience with Docker, Git, TravisCI, and Google Cloud Platform demonstrates competence in containerization, CI/CD pipelines, and cloud‑based deployments, all integral to Palantir’s engineering workflow. [resume.pdf, P1‑L41]  \n\n- **Effective communication and teamwork** – As an IT Support Specialist, routinely coordinated with managers, troubleshot issues for a large user base, and maintained extensive campus hardware, indicating strong collaboration and stakeholder‑management skills. [resume.pdf, P1‑L14:L18]  \n\n- **Research and problem‑solving mindset** – Conducted undergraduate research developing a REST API and a full‑stack app, and explored visualization techniques, showing initiative and the analytical thinking Palantir looks for in its engineers. [resume.pdf, P1‑L9:P1‑L13]  \n\n**Conclusion:** The candidate’s mix of backend development, data‑focused projects, relevant technical stack, cloud/DevOps experience, and proven teamwork make them a strong fit for a software‑engineering role at Palantir.",
+  "question_terms": [
+    "palantir",
+    "person",
+    "think",
+    "would"
+  ],
+  "files": [
+    "resume.pdf"
+  ],
+  "steps": [
+    {
+      "idx": 1,
+      "tool": "think",
+      "label": "agent text"
+    },
+    {
+      "idx": 2,
+      "tool": "list_files",
+      "label": "list files"
+    },
+    {
+      "idx": 5,
+      "tool": "think",
+      "label": "agent text"
+    },
+    {
+      "idx": 6,
+      "tool": "get_pdf_info",
+      "label": "get_pdf_info"
+    },
+    {
+      "idx": 9,
+      "tool": "think",
+      "label": "agent text"
+    },
+    {
+      "idx": 10,
+      "tool": "read_pdf_pages",
+      "label": "read p1"
+    },
+    {
+      "idx": 13,
+      "tool": "think",
+      "label": "agent text"
+    },
+    {
+      "idx": 14,
+      "tool": "select_evidence",
+      "label": "select p1 L11-13"
+    },
+    {
+      "idx": 17,
+      "tool": "think",
+      "label": "agent text"
+    },
+    {
+      "idx": 18,
+      "tool": "select_evidence",
+      "label": "select p1 L14-18"
+    },
+    {
+      "idx": 21,
+      "tool": "think",
+      "label": "agent text"
+    },
+    {
+      "idx": 22,
+      "tool": "select_evidence",
+      "label": "select p1 L38-41"
+    },
+    {
+      "idx": 25,
+      "tool": "think",
+      "label": "agent text"
+    },
+    {
+      "idx": 26,
+      "tool": "answer",
+      "label": "final answer"
+    }
+  ],
+  "term_marks": {
+    "rest": {
+      "evidence_step": 5,
+      "own_step": 6,
+      "early": false
+    },
+    "apis": {
+      "evidence_step": null,
+      "own_step": 6,
+      "early": true
+    },
+    "fastapi": {
+      "evidence_step": 5,
+      "own_step": 6,
+      "early": false
+    },
+    "postgresql": {
+      "evidence_step": 5,
+      "own_step": 6,
+      "early": false
+    },
+    "flask-react": {
+      "evidence_step": null,
+      "own_step": null,
+      "early": false
+    },
+    "github": {
+      "evidence_step": 5,
+      "own_step": 6,
+      "early": false
+    },
+    "palantir": {
+      "evidence_step": null,
+      "own_step": null,
+      "early": false
+    },
+    "proficient": {
+      "evidence_step": null,
+      "own_step": null,
+      "early": false
+    },
+    "java": {
+      "evidence_step": 5,
+      "own_step": 6,
+      "early": false
+    },
+    "python": {
+      "evidence_step": 5,
+      "own_step": 6,
+      "early": false
+    },
+    "c++": {
+      "evidence_step": 5,
+      "own_step": null,
+      "early": false
+    },
+    "sql": {
+      "evidence_step": 5,
+      "own_step": 12,
+      "early": false
+    },
+    "postgres": {
+      "evidence_step": 5,
+      "own_step": null,
+      "early": false
+    },
+    "javascript": {
+      "evidence_step": 5,
+      "own_step": null,
+      "early": false
+    },
+    "html": {
+      "evidence_step": 5,
+      "own_step": null,
+      "early": false
+    },
+    "familiarity": {
+      "evidence_step": null,
+      "own_step": null,
+      "early": false
+    },
+    "docker": {
+      "evidence_step": 5,
+      "own_step": 6,
+      "early": false
+    },
+    "git": {
+      "evidence_step": 5,
+      "own_step": null,
+      "early": false
+    },
+    "travisci": {
+      "evidence_step": 5,
+      "own_step": null,
+      "early": false
+    },
+    "google": {
+      "evidence_step": 5,
+      "own_step": null,
+      "early": false
+    },
+    "cloud": {
+      "evidence_step": 5,
+      "own_step": 8,
+      "early": false
+    },
+    "platform": {
+      "evidence_step": 5,
+      "own_step": 10,
+      "early": false
+    },
+    "ci": {
+      "evidence_step": null,
+      "own_step": null,
+      "early": false
+    },
+    "cd": {
+      "evidence_step": null,
+      "own_step": null,
+      "early": false
+    },
+    "effective": {
+      "evidence_step": null,
+      "own_step": null,
+      "early": false
+    },
+    "support": {
+      "evidence_step": 5,
+      "own_step": 6,
+      "early": false
+    },
+    "specialist": {
+      "evidence_step": 5,
+      "own_step": null,
+      "early": false
+    },
+    "research": {
+      "evidence_step": 5,
+      "own_step": 6,
+      "early": false
+    },
+    "conducted": {
+      "evidence_step": 5,
+      "own_step": null,
+      "early": false
+    },
+    "api": {
+      "evidence_step": 5,
+      "own_step": 6,
+      "early": false
+    },
+    "devops": {
+      "evidence_step": null,
+      "own_step": null,
+      "early": false
+    }
+  },
+  "selected_evidence": [
+    {
+      "file": "resume.pdf",
+      "page": 1,
+      "start": 11,
+      "end": 13,
+      "purpose": "demonstrate backend and data engineering experience relevant to Palantir"
+    },
+    {
+      "file": "resume.pdf",
+      "page": 1,
+      "start": 14,
+      "end": 18,
+      "purpose": "show communication and teamwork experience"
+    },
+    {
+      "file": "resume.pdf",
+      "page": 1,
+      "start": 38,
+      "end": 41,
+      "purpose": "list technical skills relevant to Palantir"
+    }
+  ],
+  "claims": [
+    {
+      "id": "c1",
+      "text": "Strong backend and data-engineering experience - Built REST APIs with FastAPI and PostgreSQL and a full-stack Flask-React application that processes and visualizes GitHub data, showing the ability to design, implement, and scale data-centric services that Palantir values",
+      "citations": [
+        {
+          "file": "resume.pdf",
+          "page": 1,
+          "start": 11,
+          "end": 13,
+          "raw": "[resume.pdf, P1-L11:L13]"
+        }
+      ],
+      "verdict": "post-rationalised",
+      "score": 5,
+      "deductions": [
+        {
+          "reason": "Written by the agent before any evidence contained it: apis",
+          "points": 40
+        },
+        {
+          "reason": "Question focus not in the cited lines: palantir (link supplied by the model's prior)",
+          "points": 25
+        },
+        {
+          "reason": "Not found in any source the agent saw: apis, flask-react, palantir",
+          "points": 30
+        }
+      ],
+      "E_lex": 0.57,
+      "precision": 1.0,
+      "terms": [
+        {
+          "term": "rest",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": 6,
+          "first_own_source": "reasoning",
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "apis",
+          "support": "not in any source",
+          "in_question": false,
+          "first_own_step": 6,
+          "first_own_source": "reasoning",
+          "first_evidence_step": null,
+          "asserted_before_seen": true
+        },
+        {
+          "term": "fastapi",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": 6,
+          "first_own_source": "reasoning",
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "postgresql",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": 6,
+          "first_own_source": "reasoning",
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "flask-react",
+          "support": "not in any source",
+          "in_question": false,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": null,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "github",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": 6,
+          "first_own_source": "reasoning",
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "palantir",
+          "support": "not in any source",
+          "in_question": true,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": null,
+          "asserted_before_seen": false
+        }
+      ],
+      "bridging_terms": [
+        "palantir"
+      ],
+      "timing_terms": [
+        "apis"
+      ],
+      "cited_lines": [
+        {
+          "file": "resume.pdf",
+          "page": 1,
+          "line": 11,
+          "text": "• Developed a REST API using FastAPI and PostgreSQL to store data from learning management systems",
+          "status": "opened",
+          "selected": true,
+          "terms": [
+            "rest",
+            "fastapi",
+            "postgresql"
+          ],
+          "unique_terms": [
+            "rest",
+            "fastapi"
+          ],
+          "role": "load-bearing"
+        },
+        {
+          "file": "resume.pdf",
+          "page": 1,
+          "line": 12,
+          "text": "• Developed a full-stack web application using Flask, React, PostgreSQL and Docker to analyze GitHub data",
+          "status": "opened",
+          "selected": true,
+          "terms": [
+            "postgresql",
+            "github"
+          ],
+          "unique_terms": [],
+          "role": "supporting"
+        },
+        {
+          "file": "resume.pdf",
+          "page": 1,
+          "line": 13,
+          "text": "• Explored ways to visualize GitHub collaboration in a classroom setting",
+          "status": "opened",
+          "selected": true,
+          "terms": [
+            "github"
+          ],
+          "unique_terms": [],
+          "role": "supporting"
+        }
+      ],
+      "causal": null
+    },
+    {
+      "id": "c2",
+      "text": "Solid programming language repertoire - Proficient in Java, Python, C/C++, and SQL (Postgres) as well as JavaScript/HTML, covering the core languages Palantir engineers use for building complex analytics platforms",
+      "citations": [
+        {
+          "file": "resume.pdf",
+          "page": 1,
+          "start": 39,
+          "end": 40,
+          "raw": "[resume.pdf, P1-L39:L40]"
+        }
+      ],
+      "verdict": "post-rationalisation risk",
+      "score": 45,
+      "deductions": [
+        {
+          "reason": "Question focus not in the cited lines: palantir (link supplied by the model's prior)",
+          "points": 25
+        },
+        {
+          "reason": "Not found in any source the agent saw: proficient, palantir",
+          "points": 20
+        },
+        {
+          "reason": "1 cited line(s) are dead weight",
+          "points": 10
+        }
+      ],
+      "E_lex": 0.78,
+      "precision": 0.5,
+      "terms": [
+        {
+          "term": "proficient",
+          "support": "not in any source",
+          "in_question": false,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": null,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "java",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": 6,
+          "first_own_source": "reasoning",
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "python",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": 6,
+          "first_own_source": "reasoning",
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "c++",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "sql",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": 12,
+          "first_own_source": "reasoning",
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "postgres",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "javascript",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "html",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "palantir",
+          "support": "not in any source",
+          "in_question": true,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": null,
+          "asserted_before_seen": false
+        }
+      ],
+      "bridging_terms": [
+        "palantir"
+      ],
+      "timing_terms": [],
+      "cited_lines": [
+        {
+          "file": "resume.pdf",
+          "page": 1,
+          "line": 39,
+          "text": "Languages: Java, Python, C/C++, SQL (Postgres), JavaScript, HTML/CSS, R",
+          "status": "opened",
+          "selected": true,
+          "terms": [
+            "java",
+            "python",
+            "c++",
+            "sql",
+            "postgres",
+            "javascript",
+            "html"
+          ],
+          "unique_terms": [
+            "java",
+            "python",
+            "c++",
+            "sql",
+            "postgres",
+            "javascript",
+            "html"
+          ],
+          "role": "load-bearing"
+        },
+        {
+          "file": "resume.pdf",
+          "page": 1,
+          "line": 40,
+          "text": "Frameworks: React, Node.js, Flask, JUnit, WordPress, Material-UI, FastAPI",
+          "status": "opened",
+          "selected": true,
+          "terms": [],
+          "unique_terms": [],
+          "role": "dead weight"
+        }
+      ],
+      "causal": null
+    },
+    {
+      "id": "c3",
+      "text": "Familiarity with modern development tools and cloud infrastructure - Experience with Docker, Git, TravisCI, and Google Cloud Platform demonstrates competence in containerization, CI/CD pipelines, and cloud-based deployments, all integral to Palantir’s engineering workflow",
+      "citations": [
+        {
+          "file": "resume.pdf",
+          "page": 1,
+          "start": 41,
+          "end": 41,
+          "raw": "[resume.pdf, P1-L41]"
+        }
+      ],
+      "verdict": "post-rationalisation risk",
+      "score": 45,
+      "deductions": [
+        {
+          "reason": "Question focus not in the cited lines: palantir (link supplied by the model's prior)",
+          "points": 25
+        },
+        {
+          "reason": "Not found in any source the agent saw: familiarity, ci, cd, palantir",
+          "points": 30
+        }
+      ],
+      "E_lex": 0.6,
+      "precision": 1.0,
+      "terms": [
+        {
+          "term": "familiarity",
+          "support": "not in any source",
+          "in_question": false,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": null,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "docker",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": 6,
+          "first_own_source": "reasoning",
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "git",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "travisci",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "google",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "cloud",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": 8,
+          "first_own_source": "reasoning",
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "platform",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": 10,
+          "first_own_source": "reasoning",
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "ci",
+          "support": "not in any source",
+          "in_question": false,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": null,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "cd",
+          "support": "not in any source",
+          "in_question": false,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": null,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "palantir",
+          "support": "not in any source",
+          "in_question": true,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": null,
+          "asserted_before_seen": false
+        }
+      ],
+      "bridging_terms": [
+        "palantir"
+      ],
+      "timing_terms": [],
+      "cited_lines": [
+        {
+          "file": "resume.pdf",
+          "page": 1,
+          "line": 41,
+          "text": "Developer Tools: Git, Docker, TravisCI, Google Cloud Platform, VS Code, Visual Studio, PyCharm, IntelliJ, Eclipse",
+          "status": "opened",
+          "selected": true,
+          "terms": [
+            "docker",
+            "git",
+            "travisci",
+            "google",
+            "cloud",
+            "platform"
+          ],
+          "unique_terms": [
+            "docker",
+            "git",
+            "travisci",
+            "google",
+            "cloud",
+            "platform"
+          ],
+          "role": "load-bearing"
+        }
+      ],
+      "causal": null
+    },
+    {
+      "id": "c4",
+      "text": "Effective communication and teamwork - As an IT Support Specialist, routinely coordinated with managers, troubleshot issues for a large user base, and maintained extensive campus hardware, indicating strong collaboration and stakeholder-management skills",
+      "citations": [
+        {
+          "file": "resume.pdf",
+          "page": 1,
+          "start": 14,
+          "end": 18,
+          "raw": "[resume.pdf, P1-L14:L18]"
+        }
+      ],
+      "verdict": "post-rationalisation risk",
+      "score": 74,
+      "deductions": [
+        {
+          "reason": "Not found in any source the agent saw: effective",
+          "points": 10
+        },
+        {
+          "reason": "4 cited line(s) are dead weight",
+          "points": 16
+        }
+      ],
+      "E_lex": 0.67,
+      "precision": 0.2,
+      "terms": [
+        {
+          "term": "effective",
+          "support": "not in any source",
+          "in_question": false,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": null,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "support",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": 6,
+          "first_own_source": "reasoning",
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "specialist",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        }
+      ],
+      "bridging_terms": [],
+      "timing_terms": [],
+      "cited_lines": [
+        {
+          "file": "resume.pdf",
+          "page": 1,
+          "line": 14,
+          "text": "Information Technology Support Specialist Sep. 2018 – Present",
+          "status": "opened",
+          "selected": true,
+          "terms": [
+            "support",
+            "specialist"
+          ],
+          "unique_terms": [
+            "support",
+            "specialist"
+          ],
+          "role": "load-bearing"
+        },
+        {
+          "file": "resume.pdf",
+          "page": 1,
+          "line": 15,
+          "text": "Southwestern University Georgetown, TX",
+          "status": "opened",
+          "selected": true,
+          "terms": [],
+          "unique_terms": [],
+          "role": "dead weight"
+        },
+        {
+          "file": "resume.pdf",
+          "page": 1,
+          "line": 16,
+          "text": "• Communicate with managers to set up campus computers used on campus",
+          "status": "opened",
+          "selected": true,
+          "terms": [],
+          "unique_terms": [],
+          "role": "dead weight"
+        },
+        {
+          "file": "resume.pdf",
+          "page": 1,
+          "line": 17,
+          "text": "• Assess and troubleshoot computer problems brought by students, faculty and staff",
+          "status": "opened",
+          "selected": true,
+          "terms": [],
+          "unique_terms": [],
+          "role": "dead weight"
+        },
+        {
+          "file": "resume.pdf",
+          "page": 1,
+          "line": 18,
+          "text": "• Maintain upkeep of computers, classroom equipment, and 200 printers across campus",
+          "status": "opened",
+          "selected": true,
+          "terms": [],
+          "unique_terms": [],
+          "role": "dead weight"
+        }
+      ],
+      "causal": null
+    },
+    {
+      "id": "c5",
+      "text": "Research and problem-solving mindset - Conducted undergraduate research developing a REST API and a full-stack app, and explored visualization techniques, showing initiative and the analytical thinking Palantir looks for in its engineers",
+      "citations": [
+        {
+          "file": "resume.pdf",
+          "page": 1,
+          "start": 9,
+          "end": 13,
+          "raw": "[resume.pdf, P1-L9:P1-L13]"
+        }
+      ],
+      "verdict": "post-rationalisation risk",
+      "score": 43,
+      "deductions": [
+        {
+          "reason": "Question focus not in the cited lines: palantir (link supplied by the model's prior)",
+          "points": 25
+        },
+        {
+          "reason": "Not found in any source the agent saw: palantir",
+          "points": 10
+        },
+        {
+          "reason": "Only supported outside the citation: conducted",
+          "points": 5
+        },
+        {
+          "reason": "3 cited line(s) are dead weight",
+          "points": 12
+        },
+        {
+          "reason": "2 cited line(s) were not selected as evidence",
+          "points": 5
+        }
+      ],
+      "E_lex": 0.6,
+      "precision": 0.4,
+      "terms": [
+        {
+          "term": "research",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": 6,
+          "first_own_source": "reasoning",
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "conducted",
+          "support": "elsewhere in sources",
+          "in_question": false,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "rest",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": 6,
+          "first_own_source": "reasoning",
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "api",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": 6,
+          "first_own_source": "reasoning",
+          "first_evidence_step": 5,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "palantir",
+          "support": "not in any source",
+          "in_question": true,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": null,
+          "asserted_before_seen": false
+        }
+      ],
+      "bridging_terms": [
+        "palantir"
+      ],
+      "timing_terms": [],
+      "cited_lines": [
+        {
+          "file": "resume.pdf",
+          "page": 1,
+          "line": 9,
+          "text": "Undergraduate Research Assistant June 2020 – Present",
+          "status": "opened",
+          "selected": false,
+          "terms": [
+            "research"
+          ],
+          "unique_terms": [
+            "research"
+          ],
+          "role": "load-bearing"
+        },
+        {
+          "file": "resume.pdf",
+          "page": 1,
+          "line": 10,
+          "text": "Texas A&M University College Station, TX",
+          "status": "opened",
+          "selected": false,
+          "terms": [],
+          "unique_terms": [],
+          "role": "dead weight"
+        },
+        {
+          "file": "resume.pdf",
+          "page": 1,
+          "line": 11,
+          "text": "• Developed a REST API using FastAPI and PostgreSQL to store data from learning management systems",
+          "status": "opened",
+          "selected": true,
+          "terms": [
+            "rest",
+            "api"
+          ],
+          "unique_terms": [
+            "rest",
+            "api"
+          ],
+          "role": "load-bearing"
+        },
+        {
+          "file": "resume.pdf",
+          "page": 1,
+          "line": 12,
+          "text": "• Developed a full-stack web application using Flask, React, PostgreSQL and Docker to analyze GitHub data",
+          "status": "opened",
+          "selected": true,
+          "terms": [],
+          "unique_terms": [],
+          "role": "dead weight"
+        },
+        {
+          "file": "resume.pdf",
+          "page": 1,
+          "line": 13,
+          "text": "• Explored ways to visualize GitHub collaboration in a classroom setting",
+          "status": "opened",
+          "selected": true,
+          "terms": [],
+          "unique_terms": [],
+          "role": "dead weight"
+        }
+      ],
+      "causal": null
+    },
+    {
+      "id": "c6",
+      "text": "Conclusion: The candidate’s mix of backend development, data-focused projects, relevant technical stack, cloud/DevOps experience, and proven teamwork make them a strong fit for a software-engineering role at Palantir",
+      "citations": [],
+      "verdict": "uncited",
+      "score": 50,
+      "deductions": [
+        {
+          "reason": "No citation: the claim cannot be traced to a source",
+          "points": 50
+        }
+      ],
+      "E_lex": 0.0,
+      "precision": null,
+      "terms": [
+        {
+          "term": "devops",
+          "support": "not in any source",
+          "in_question": false,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": null,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "palantir",
+          "support": "not in any source",
+          "in_question": true,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": null,
+          "asserted_before_seen": false
+        }
+      ],
+      "bridging_terms": [
+        "palantir"
+      ],
+      "timing_terms": [],
+      "cited_lines": [],
+      "causal": null
+    }
+  ],
+  "verdict_counts": {
+    "post-rationalised": 1,
+    "post-rationalisation risk": 4,
+    "uncited": 1
+  },
+  "trust_score": 44,
+  "trace_has_agent_text": true,
+  "notes": [
+    "Static signals are lexical. They show whether the cited text can carry the claim, not whether the agent causally relied on it."
+  ]
+}

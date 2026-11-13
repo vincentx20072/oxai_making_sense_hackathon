@@ -444,7 +444,7 @@
     "trace_has_agent_text": false,
     "notes": [
       "This log does not record the agent's own reasoning or messages, so the timing signal only sees tool arguments (e.g. search queries). Use the instrumented agent4.py to log them.",
-      "Static signals are lexical. They show whether the cited text can carry the claim, not whether the agent causally relied on it; run the replay (--replay) for causal labels."
+      "Static signals are lexical. They show whether the cited text can carry the claim, not whether the agent causally relied on it."
     ]
   }
 ]

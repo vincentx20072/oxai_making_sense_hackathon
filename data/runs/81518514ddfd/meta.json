@@ -1,0 +1,28 @@
+{
+  "id": "81518514ddfd",
+  "source": "agent",
+  "question": "Do you think this person would be a good fit for palantir?",
+  "created": "2026-11-13T16:35:57+00:00",
+  "status": "done",
+  "files": [
+    {
+      "name": "resume.pdf",
+      "size": 104989,
+      "pages": 1,
+      "has_text": true
+    }
+  ],
+  "model": "openai/gpt-oss-120b",
+  "auto_jenga": true,
+  "analysed": true,
+  "trust_score": 44,
+  "started": "2026-11-13T16:35:57+00:00",
+  "finished": "2026-11-13T16:36:17+00:00",
+  "duration": 20.2,
+  "verdict_counts": {
+    "post-rationalised": 1,
+    "post-rationalisation risk": 4,
+    "uncited": 1
+  },
+  "n_claims": 6
+}

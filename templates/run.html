@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ meta.question[:60] }}{% endblock %}
+
+{% macro lines_table(lines) -%}
+<div class="lines">
+  {% for l in lines %}
+  <div class="ln {% if l.cited %}is-cited{% endif %} {% if l.selected %}is-selected{% endif %}">
+    <span class="ln-ref">P{{ l.page }}·L{{ l.line }}</span><span class="ln-text">{{ l.text or ' ' }}</span>
+    {% if l.cited %}<span class="ln-tag">cited</span>{% elif l.selected %}<span class="ln-tag ln-tag-sel">selected</span>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{%- endmacro %}
+
+{% block main %}
+<header class="run-head">
+  <div class="run-head-top">
+    <span class="status status-{{ meta.status }}">
+      {% if meta.status in ('queued','running') %}<span class="spinner"></span>{% endif %}
+      {{ {'queued':'Queued','running':'Running','done':'Finished','error':'Failed'}[meta.status] }}
+    </span>
+    {% if meta.source == 'import' %}<span class="tag">Imported log{% if meta.import_name %} · {{ meta.import_name }}{% endif %}</span>{% endif %}
+    <span class="muted small">{{ meta.model }} · {{ meta.created|ago }}{% if meta.duration %} · {{ meta.duration }} s{% endif %}</span>
+  </div>
+  <h1 class="run-q">{{ meta.question }}</h1>
+  <div class="run-files">
+    {% for f in meta.files %}
+    <a class="filechip" href="{{ url_for('run_file', run_id=meta.id, name=f.name) }}" target="_blank" rel="noopener">{{ icon('file') }} <span>{{ f.name }}</span><span class="muted small">{{ f.pages }} p</span></a>
+    {% else %}
+    <span class="muted small">No PDFs attached: analysed from an uploaded log.</span>
+    {% endfor %}
+    <span class="spacer"></span>
+    {% if meta.source != 'import' %}<a class="btn btn-ghost" href="{{ url_for('index', **{'from': meta.id}) }}">{{ icon('repeat') }} Ask again with these files</a>{% endif %}
+    {% if meta.status not in ('queued','running') %}
+    <form method="post" action="{{ url_for('delete_run', run_id=meta.id) }}" onsubmit="return confirm('Delete this run and its files?')">
+      <button class="btn btn-ghost btn-danger" type="submit" title="Delete run">{{ icon('trash') }}<span class="sr">Delete</span></button>
+    </form>
+    {% endif %}
+  </div>
+</header>
+
+{% if meta.status in ('queued','running') %}
+<section class="card progress" id="progress" data-run="{{ meta.id }}">
+  <div class="progress-head"><span class="spinner spinner-lg"></span>
+    <div><strong>The agent is working</strong><div class="muted small">This page updates by itself.</div></div></div>
+  <ol class="steps" id="steps">{% for s in steps %}<li>{{ s }}</li>{% endfor %}</ol>
+  <div class="thought" id="thought" {% if not thought %}hidden{% endif %}>{{ icon('think') }}<span>{{ thought }}</span></div>
+</section>
+{% endif %}
+
+{% if meta.status == 'error' %}
+<section class="card card-error">
+  <strong>{{ icon('alert') }} The agent stopped with an error</strong>
+  <pre class="err">{{ meta.error }}</pre>
+  {% if turns %}<a href="?tab=log">See how far it got in the agent log →</a>{% endif %}
+</section>
+{% endif %}
+
+{% if meta.status in ('done', 'error') and (turns or meta.status == 'done') %}
+<nav class="tabs" role="tablist">
+  <a class="tab {% if tab=='answer' %}is-active{% endif %}" href="?tab=answer">{{ icon('answer') }} Answer</a>
+  <a class="tab {% if tab=='trust' %}is-active{% endif %}" href="?tab=trust">{{ icon('shield') }} Trust
+    {% if meta.analysed %}<span class="score-pill {{ meta.trust_score|band }}">{{ meta.trust_score }}</span>{% endif %}</a>
+  <a class="tab {% if tab=='log' %}is-active{% endif %}" href="?tab=log">{{ icon('list') }} Agent log <span class="count">{{ n_calls }}</span></a>
+</nav>
+
+{# ================= ANSWER ================= #}
+{% if tab == 'answer' %}
+<div class="grid-answer">
+  <section class="card answer">
+    <h2 class="card-title">Answer</h2>
+    {% if answer_html %}<div class="prose">{{ answer_html|safe }}</div>
+    <p class="muted small">Hover a citation to see the cited lines{% if meta.files %}; click it to open the PDF page{% endif %}.</p>
+    {% else %}<p class="muted">No final answer yet.</p>{% endif %}
+  </section>
+  <aside class="stack">
+    <section class="card">
+      <h2 class="card-title">{{ icon('shield') }} Trust</h2>
+      {% if meta.analysed %}
+        <div class="mini-score">
+          <span class="big-score {{ meta.trust_score|band }}">{{ meta.trust_score }}</span>
+          <div>
+            {% for v, n in meta.verdict_counts.items() %}
+              <div class="small"><span class="chip {{ verdict_style.get(v, ('muted',v))[0] }}">{{ n }}</span> {{ verdict_style.get(v, ('', v))[1] }}</div>
+            {% endfor %}
+          </div>
+        </div>
+        <a class="btn btn-block" href="?tab=trust">See the full trust report</a>
+      {% elif meta.status == 'done' %}
+        <p class="muted small">Check whether each citation actually carries its claim. Uses the log only, with no API calls.</p>
+        <form method="post" action="{{ url_for('analyse', run_id=meta.id) }}"><button class="btn btn-primary btn-block" type="submit">Run Jenga analysis</button></form>
+      {% else %}<p class="muted small">Available when the agent finishes.</p>{% endif %}
+    </section>
+    {% if run and run.selected %}
+    <section class="card">
+      <h2 class="card-title">{{ icon('pin') }} Evidence the agent selected</h2>
+      {% for s in run.selected %}
+      <div class="evidence">
+        <div class="ev-head"><span class="tag">{{ s.file }} · p{{ s.page }} · L{{ s.start }}{% if s.end != s.start %}–{{ s.end }}{% endif %}</span></div>
+        <div class="ev-purpose">{{ s.purpose }}</div>
+        <div class="ev-text">{% for p, l, t in s.lines %}<div>{{ t }}</div>{% endfor %}</div>
+      </div>
+      {% endfor %}
+    </section>
+    {% endif %}
+  </aside>
+</div>
+
+{# ================= TRUST ================= #}
+{% elif tab == 'trust' %}
+  {% if report %}
+  <section class="card trust-summary">
+    <div class="ts-score">
+      <svg width="132" height="132" viewBox="0 0 150 150" role="img" aria-label="Trust score {{ report.trust_score }}">
+        <circle cx="75" cy="75" r="58" fill="none" stroke="var(--muted-bg)" stroke-width="14"/>
+        <circle cx="75" cy="75" r="58" fill="none" stroke="var(--{{ report.trust_score|band }})" stroke-width="14" stroke-linecap="round"
+          stroke-dasharray="{{ '%.1f'|format(364.4 * (report.trust_score or 0) / 100) }} 364.4" transform="rotate(-90 75 75)"/>
+        <text x="75" y="82" text-anchor="middle" font-size="36" font-weight="700" fill="var(--ink)">{{ report.trust_score }}</text>
+        <text x="75" y="104" text-anchor="middle" font-size="11" fill="var(--sub)">trust / 100</text>
+      </svg>
+    </div>
+    <div class="ts-body">
+      <h2 class="card-title">How far can you trust this answer?</h2>
+      <p class="muted small">
+        {% if report.trust_score >= 75 %}Most claims are carried by the lines they cite.
+        {% elif report.trust_score >= 45 %}Some claims lean on the model's own knowledge or on lines outside their citation. Check the flagged ones.
+        {% else %}Several citations don't carry their claims. Treat this answer as unverified.{% endif %}
+      </p>
+      <ul class="claim-list">
+        {% for c in report.claims %}
+        {% set vs = verdict_style.get(c.verdict, ('muted', c.verdict)) %}
+        <li><span class="score-pill {{ c.score|band }}">{{ c.score }}</span>
+          <span class="chip {{ vs[0] }}">{{ vs[1] }}</span>
+          <span class="cl-text">{{ c.text }}</span></li>
+        {% endfor %}
+      </ul>
+      <form method="post" action="{{ url_for('analyse', run_id=meta.id) }}" class="inline"><button class="btn btn-ghost small" type="submit">{{ icon('repeat') }} Re-run analysis</button></form>
+      <a class="btn btn-ghost small" href="{{ url_for('jenga_report', run_id=meta.id) }}" target="_blank" rel="noopener">Open report in new tab</a>
+    </div>
+  </section>
+  <iframe class="report-frame" id="report-frame" src="{{ url_for('jenga_report', run_id=meta.id, embed=1) }}" title="Jenga trust report"></iframe>
+  {% elif meta.status == 'done' %}
+  <section class="card cta">
+    {{ icon('shield', 32) }}
+    <h2>Check this answer with Jenga</h2>
+    <p class="muted">Jenga reads the agent's log and checks, claim by claim, whether each citation was shown to the agent,
+      whether it contains the claim's facts, which cited lines are load-bearing, and whether the agent wrote a value before it saw it.
+      It makes no API calls.</p>
+    <form method="post" action="{{ url_for('analyse', run_id=meta.id) }}"><button class="btn btn-primary" type="submit">Run Jenga analysis</button></form>
+  </section>
+  {% else %}
+  <section class="card cta"><p class="muted">The trust check is available once the agent has finished.</p></section>
+  {% endif %}
+
+{# ================= LOG ================= #}
+{% else %}
+<div class="log-toolbar">
+  <div class="seg" role="group" aria-label="Log view">
+    <button type="button" class="seg-btn is-active" data-view="formatted">Formatted</button>
+    <button type="button" class="seg-btn" data-view="raw">Raw</button>
+  </div>
+  <label class="small muted check"><input type="checkbox" id="expand-all"> Expand all tool output</label>
+  <span class="spacer"></span>
+  {% if log_text %}<a class="btn btn-ghost small" href="{{ url_for('raw_log', run_id=meta.id, download=1) }}">{{ icon('download') }} Download log</a>{% endif %}
+</div>
+
+<div class="log-view" data-view="formatted">
+  <div class="legend small muted">
+    <span><i class="sw sw-cited"></i>line cited in the final answer</span>
+    <span><i class="sw sw-sel"></i>line selected as evidence</span>
+  </div>
+  <ol class="turns">
+  {% for t in turns %}
+    <li class="turn">
+      <div class="turn-n">{% if t.n %}#{{ t.n }}{% else %}·{% endif %}</div>
+      <div class="turn-body">
+      {% for it in t["items"] %}
+        {% if it.type == 'think' %}
+        <details class="think" {% if it.text|length < 400 %}open{% endif %}>
+          <summary>{{ icon('think') }} {{ 'Reasoning' if it.source == 'reasoning' else 'Agent message' }}{% if it.text|length >= 400 %}<span class="think-peek">{{ it.text[:120] }}…</span>{% endif %}</summary>
+          <div class="think-text">{{ it.text }}</div>
+        </details>
+        {% elif it.type == 'call' %}
+        <div class="call">
+          <div class="call-head"><span class="call-ic">{{ icon(it.icon) }}</span><strong>{{ it.name }}</strong>
+            <span class="call-sum">{{ it.summary }}</span></div>
+          {% if it.result %}
+            {% if it.result.lines %}
+            <details class="result">
+              <summary>{{ it.result.lines|length }} line{{ '' if it.result.lines|length == 1 else 's' }} returned
+                {% set nc = it.result.lines|selectattr('cited')|list|length %}{% if nc %}<span class="ln-tag">{{ nc }} cited</span>{% endif %}</summary>
+              {{ lines_table(it.result.lines) }}
+            </details>
+            {% else %}
+            <pre class="result-plain">{{ it.result.text }}</pre>
+            {% endif %}
+          {% endif %}
+        </div>
+        {% elif it.type == 'select' %}
+        <div class="call call-select">
+          <div class="call-head"><span class="call-ic">{{ icon('pin') }}</span><strong>Selected evidence</strong>
+            <span class="call-sum">{{ it.file }}, p{{ it.page }} L{{ it.start }}–{{ it.end }}</span></div>
+          <div class="sel-purpose">“{{ it.purpose }}”</div>
+          {{ lines_table(it.lines) }}
+        </div>
+        {% elif it.type == 'result' %}
+        <pre class="result-plain">{{ it.result.text }}</pre>
+        {% elif it.type == 'error' %}
+        <div class="call call-error"><div class="call-head"><span class="call-ic">{{ icon('alert') }}</span><strong>Tool error</strong></div><pre class="result-plain">{{ it.text }}</pre></div>
+        {% elif it.type == 'final' %}
+        <div class="call call-final">
+          <div class="call-head"><span class="call-ic">{{ icon('check') }}</span><strong>Final answer</strong></div>
+          <pre class="result-plain">{{ it.text }}</pre>
+        </div>
+        {% endif %}
+      {% endfor %}
+      </div>
+    </li>
+  {% else %}
+    <li class="muted">Nothing logged yet.</li>
+  {% endfor %}
+  </ol>
+</div>
+<div class="log-view" data-view="raw" hidden>
+  <pre class="raw">{{ log_text or '(empty)' }}</pre>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+{% if meta.status in ('queued','running') %}pollRun("{{ meta.id }}");{% endif %}
+initRunPage();
+</script>
+{% endblock %}

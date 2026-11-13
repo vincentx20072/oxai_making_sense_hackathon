@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}New question{% endblock %}
+{% block main %}
+<header class="page-head">
+  <h1>Ask about your PDFs</h1>
+  <p class="muted">The agent reads your documents, answers with citations, and Jenga then checks whether
+    each citation really carries its claim.</p>
+</header>
+
+{% if not has_key %}
+<div class="flash flash-error">{{ icon('alert') }} <span><code>GROQ_API_KEY</code> is not set on the server, so the agent can't run. Set it and restart the app. You can still <a href="{{ url_for('import_log') }}">analyse an existing log</a>.</span></div>
+{% endif %}
+
+<form class="card form" method="post" action="{{ url_for('create_run') }}" enctype="multipart/form-data" id="run-form">
+  <div class="field">
+    <label class="label" for="pdfs">Documents</label>
+    <label class="drop" id="drop" for="pdfs">
+      {{ icon('upload', 28) }}
+      <span class="drop-title">Drop PDFs here or <u>browse</u></span>
+      <span class="muted small">PDF only · up to {{ max_files }} files · {{ max_mb }} MB total</span>
+      <input type="file" id="pdfs" name="pdfs" accept="application/pdf,.pdf" multiple>
+    </label>
+    <ul class="filelist" id="filelist">
+      {% if reuse %}{% for f in reuse.files %}
+      <li class="filechip is-reused">{{ icon('file') }} <span>{{ f.name }}</span><span class="muted small">{{ f.pages }} p · {{ f.size|filesize }} · from earlier run</span></li>
+      {% endfor %}{% endif %}
+    </ul>
+    {% if reuse %}<input type="hidden" name="reuse_from" value="{{ reuse.id }}">{% endif %}
+    <p class="error small" id="file-error" hidden></p>
+  </div>
+
+  <div class="field">
+    <label class="label" for="question">Prompt</label>
+    <textarea id="question" name="question" rows="4" maxlength="4000" required
+      placeholder="e.g. Based on my resume, what evidence is there that I have experience with Python?">{{ request.args.get('q', '') }}</textarea>
+    <div class="examples">
+      <span class="muted small">Try:</span>
+      <button type="button" class="ex" data-q="What evidence is there that this person has experience with Python? Give a concise answer.">Python experience</button>
+      <button type="button" class="ex" data-q="Summarise the three most important findings in these documents, citing each.">Key findings</button>
+      <button type="button" class="ex" data-q="Is this candidate a good fit for a backend software engineer role? Justify each point with evidence.">Role fit</button>
+    </div>
+  </div>
+
+  <label class="switch">
+    <input type="checkbox" name="auto_jenga" checked>
+    <span class="track"><span class="thumb"></span></span>
+    <span><strong>Check the answer with Jenga when it finishes</strong><br>
+      <span class="muted small">Static analysis of the agent's log. No extra API calls.</span></span>
+  </label>
+
+  <div class="form-foot">
+    <span class="muted small">Model: {{ model }}</span>
+    <button class="btn btn-primary" type="submit" id="submit" {% if not has_key %}disabled{% endif %}>Run agent</button>
+  </div>
+</form>
+
+<section class="how">
+  <div class="how-item"><span class="how-n">1</span><div><strong>Agent reads</strong><p class="muted small">Searches and reads your PDFs with tools, then selects evidence.</p></div></div>
+  <div class="how-item"><span class="how-n">2</span><div><strong>Answer with citations</strong><p class="muted small">Every claim points to the page and line it relies on.</p></div></div>
+  <div class="how-item"><span class="how-n">3</span><div><strong>Jenga checks it</strong><p class="muted small">Pulls each cited line out to see if the claim still stands, and flags post-rationalisation.</p></div></div>
+</section>
+{% endblock %}
+{% block scripts %}<script>initRunForm({{ 1 if reuse else 0 }}, {{ max_files }}, {{ max_mb }});</script>{% endblock %}

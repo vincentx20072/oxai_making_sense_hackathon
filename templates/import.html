@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Analyse a log{% endblock %}
+{% block main %}
+<header class="page-head">
+  <h1>Analyse an existing log</h1>
+  <p class="muted">Upload an agent log in the <code>agent4.log</code> format. Jenga scores the last
+    completed run in it. This makes no model calls.</p>
+</header>
+<form class="card form" method="post" enctype="multipart/form-data">
+  <label class="drop" for="log">
+    {{ icon('upload', 28) }}
+    <span class="drop-title">Choose a <code>.log</code> file</span>
+    <span class="muted small" id="log-name">Logs from the instrumented agent give the strongest timing signal</span>
+    <input type="file" id="log" name="log" accept=".log,.txt,text/plain" required
+      onchange="document.getElementById('log-name').textContent = this.files[0] ? this.files[0].name : ''">
+  </label>
+  <div class="form-foot"><span></span><button class="btn btn-primary" type="submit">Analyse log</button></div>
+</form>
+{% endblock %}

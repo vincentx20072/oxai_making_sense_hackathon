@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}Jenga{% endblock %} · Jenga</title>
+<script>try{var t=localStorage.getItem("jenga-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}</script>
+<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='22' width='24' height='6' rx='1.5' fill='%233b5bdb'/%3E%3Crect x='8' y='14' width='24' height='6' rx='1.5' fill='%239aaef0'/%3E%3Crect x='2' y='6' width='24' height='6' rx='1.5' fill='%233b5bdb'/%3E%3C/svg%3E">
+</head>
+<body>
+{% from "_icons.html" import icon %}
+
+<div class="shell">
+  <aside class="side" id="side">
+    <a class="brand" href="{{ url_for('index') }}">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="22" width="24" height="6" rx="1.5" fill="var(--acc)"/><rect x="8" y="14" width="22" height="6" rx="1.5" fill="var(--acc2)"/><rect x="2" y="6" width="24" height="6" rx="1.5" fill="var(--acc)"/></svg>
+      <span>Jenga</span>
+    </a>
+    <a class="btn btn-primary btn-block" href="{{ url_for('index') }}">{{ icon('plus') }} New question</a>
+    <a class="side-link {% if active == 'import' %}is-active{% endif %}" href="{{ url_for('import_log') }}">{{ icon('upload') }} Analyse an existing log</a>
+    <div class="side-label">History</div>
+    <nav class="history">
+      {% for h in history %}
+      <a class="hist {% if active == h.id %}is-active{% endif %}" href="{{ url_for('view_run', run_id=h.id) }}">
+        <span class="hist-q">{{ h.question }}</span>
+        <span class="hist-meta">
+          {% if h.status in ('queued', 'running') %}<span class="dot dot-run"></span> running
+          {% elif h.status == 'error' %}<span class="dot dot-bad"></span> failed
+          {% elif h.analysed %}<span class="score-pill {{ h.trust_score|band }}">{{ h.trust_score }}</span>
+          {% else %}<span class="dot"></span> not checked{% endif %}
+          · {{ h.created|ago }}{% if h.source == 'import' %} · imported{% endif %}
+        </span>
+      </a>
+      {% else %}
+      <p class="muted small">No runs yet. Ask a question to start.</p>
+      {% endfor %}
+    </nav>
+    <div class="theme" role="radiogroup" aria-label="Colour theme">
+      <button type="button" class="theme-btn" data-theme-choice="system" role="radio" title="Match system">{{ icon('monitor') }}<span>System</span></button>
+      <button type="button" class="theme-btn" data-theme-choice="light" role="radio" title="Light">{{ icon('sun') }}<span>Light</span></button>
+      <button type="button" class="theme-btn" data-theme-choice="dark" role="radio" title="Dark">{{ icon('moon') }}<span>Dark</span></button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <button class="side-toggle" type="button" onclick="document.body.classList.toggle('side-open')" aria-label="Show history">{{ icon('menu', 20) }}</button>
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% for cat, m in msgs %}<div class="flash flash-{{ cat }}">{{ icon('alert') if cat == 'error' else icon('info') }} {{ m }}</div>{% endfor %}
+    {% endwith %}
+    {% block main %}{% endblock %}
+  </main>
+</div>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

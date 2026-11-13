@@ -26,7 +26,9 @@ Static (log only, no model calls, safe to run on any uploaded log):
                     result containing it?  "Searching to confirm".
   * selection     - are the cited lines the ones the agent selected?
 
-Causal (replay.py, needs the source PDFs and a model API key):
+Causal (replay.py, needs the source PDFs and a model API key).  NOT run by the
+CLI or the web app, because each replay costs many API calls; call
+replay.replay_report() yourself if you have the budget:
   * source removal: rerun with each cited span hidden, then all of them.
   * planted value:  rerun with the claim's value replaced in every document.
   These produce the plan's E and F and the replay labels
@@ -35,7 +37,6 @@ Causal (replay.py, needs the source PDFs and a model API key):
 Usage
 -----
   python jenga.py samples/agent4.log                 # writes report + infographic
-  python jenga.py run.log --out out/ --replay        # also run causal tests
 
 Library use (e.g. from the website):
   reports = analyse_log_text(text)          # list of report dicts, one per run
@@ -84,7 +85,7 @@ def _ref_lines(body):
             yield int(m.group(1)), int(m.group(2)), m.group(3)
 
 
-def parse_log(text):
+def parse_log(text, include_incomplete=False):
     """Parse a log into a list of runs (one per NEW QUESTION)."""
     text = text.replace("\r\n", "\n")
     runs, run = [], None
@@ -150,6 +151,8 @@ def parse_log(text):
                    "lines": list(_ref_lines(body)), "ts": ts}
             ev.append(sel)
             run["selected"].append(sel)
+        elif head.startswith(("TOOL ERROR", "INVALID TOOL ARGUMENTS")):
+            ev.append({"kind": "error", "text": full, "ts": ts})
         elif head.startswith("FINAL ANSWER"):
             run["answer"] = _block(full)
             ev.append({"kind": "final", "ts": ts})
@@ -157,7 +160,7 @@ def parse_log(text):
     for r in runs:
         for i, e in enumerate(r["events"]):
             e["idx"] = i
-    return [r for r in runs if r["answer"] is not None]
+    return runs if include_incomplete else [r for r in runs if r["answer"] is not None]
 
 
 # ============================================================
@@ -202,7 +205,8 @@ def split_claims(answer, default_file=None):
         parts = re.split(r"(?<=[.!?])\s+(?=[A-Z\"“])", line)
         for part in parts:
             cites = parse_citations(part, default_file)
-            body = CIT_RE.sub("", part).strip(" .;")
+            body = CIT_RE.sub("", part)
+            body = re.sub(r"[*_`]{1,3}", "", body).strip(" .;")
             body = re.sub(r"\s+", " ", body).strip()
             if not body:
                 continue
@@ -229,6 +233,9 @@ demonstrates demonstrate demonstrating listed list known built build building de
 develop developing experience experiences evidence resume resumes résumé résumés based
 give concise answer answers including include includes alongside hands-on hands
 section sections project projects work worked part parts one two first second
+his her hers him himself herself theirs themselves itself conclusion conclusions overall
+however therefore thus moreover summary note yes based appears appear seems likely
+good fit strong solid core related practical relevant
 indicates indicate indicating mentions mention mentioned stated states state says
 clear clearly directly strong strongly further additionally also e.g i.e etc
 """.split())
@@ -336,7 +343,7 @@ def _step_of(steps, idx):
     return best
 
 
-def analyse_claim(claim, run, seen, q_terms, steps):
+def analyse_claim(claim, run, seen, q_terms, steps, subject=frozenset()):
     files_seen = {k[0] for k in seen}
     default_file = next(iter(files_seen)) if len(files_seen) == 1 else None
     selected = {(s["file"], s["page"], l) for s in run["selected"]
@@ -363,7 +370,7 @@ def analyse_claim(claim, run, seen, q_terms, steps):
                           "text": text, "status": status,
                           "selected": key in selected})
 
-    terms = specific_terms(claim["text"], q_terms)
+    terms = [t for t in specific_terms(claim["text"], q_terms) if t not in subject]
     cited_text = "\n".join(x["text"] for x in cited)
     other_seen = "\n".join(v["text"] for k, v in seen.items()
                            if k not in {x["key"] for x in cited})
@@ -428,15 +435,21 @@ def analyse_claim(claim, run, seen, q_terms, steps):
         deductions.append(("No citation: the claim cannot be traced to a source", 50))
     if phantom:
         deductions.append((f"{len(phantom)} cited line(s) were never shown to the agent", 50))
+    # Timing: the agent wrote the value before any tool result contained it.
+    # Naming a search target is common and only a weak signal on its own; it
+    # becomes post-rationalisation when the citation also fails to carry the claim.
+    weak_citation = bool(bridging or prior or (e_eff is not None and e_eff < 1))
     if timing:
-        deductions.append((f"Asserted before any evidence contained it: {', '.join(timing)}", 40))
-    if bridging:
+        deductions.append((f"Written by the agent before any evidence contained it: "
+                           f"{', '.join(timing)}", 40 if weak_citation else 20))
+    uncited = not claim["citations"]
+    if bridging and not uncited:
         deductions.append((f"Question focus not in the cited lines: {', '.join(bridging)} "
                            "(link supplied by the model's prior)", 25))
-    if prior:
+    if prior and not uncited:
         deductions.append((f"Not found in any source the agent saw: {', '.join(prior)}",
                            min(30, 10 * len(prior))))
-    if outside:
+    if outside and not uncited:
         deductions.append((f"Only supported outside the citation: {', '.join(outside)}",
                            min(15, 5 * len(outside))))
     if precision is not None and precision < 1:
@@ -451,8 +464,10 @@ def analyse_claim(claim, run, seen, q_terms, steps):
         verdict = "uncited"
     elif phantom:
         verdict = "phantom citation"
-    elif timing:
+    elif timing and weak_citation:
         verdict = "post-rationalised"
+    elif timing:
+        verdict = "post-rationalisation risk"
     elif bridging or prior or (e_eff is not None and e_eff < 0.5):
         verdict = "post-rationalisation risk"
     else:
@@ -472,10 +487,14 @@ def analyse_claim(claim, run, seen, q_terms, steps):
 def analyse_run(run):
     seen = _seen_map(run)
     q_terms = question_terms(run["question"])
+    # The question's subject (e.g. the person a resume is about) usually sits in a
+    # document header, not in every cited line; don't treat it as a claim value.
+    header = " ".join(v["text"] for (f, p, l), v in seen.items() if p == 1 and l <= 3)
+    subject = frozenset(t for t in q_terms if contains(header, t))
     steps = _step_labels(run)
     files = sorted({k[0] for k in seen if k[0]})
     default_file = files[0] if len(files) == 1 else None
-    claims = [analyse_claim(c, run, seen, q_terms, steps)
+    claims = [analyse_claim(c, run, seen, q_terms, steps, subject)
               for c in split_claims(run["answer"], default_file)]
 
     verdicts = {}
@@ -498,8 +517,7 @@ def analyse_run(run):
                      "the timing signal only sees tool arguments (e.g. search queries). "
                      "Use the instrumented agent4.py to log them.")
     notes.append("Static signals are lexical. They show whether the cited text can carry "
-                 "the claim, not whether the agent causally relied on it; run the replay "
-                 "(--replay) for causal labels.")
+                 "the claim, not whether the agent causally relied on it.")
 
     return {
         "run_id": run["run_id"] or run["started"], "question": run["question"],
@@ -547,6 +565,7 @@ CSS = """
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);
 font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 .wrap{max-width:1040px;margin:0 auto;padding:28px 16px 60px}
+.wrap.embedded{padding:4px 2px 8px}.wrap.embedded>h2:first-child{margin-top:0}
 h1{font-size:26px;margin:0 0 4px}h2{font-size:18px;margin:28px 0 10px}
 .sub{color:var(--sub);font-size:13px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
@@ -604,7 +623,8 @@ def _timeline(rep):
         # map every step (incl. think) to the nearest visible step at or after it
         vis = next((k for k, v in enumerate(steps) if v["idx"] >= s["idx"]), len(steps) - 1)
         idx_to_pos[n] = vis
-    gap, x0 = 128, 110
+    x0 = 110
+    gap = max(96, min(128, 700 // max(1, len(steps) - 1)))
     w = max(560, x0 + gap * (len(steps) - 1) + 80)
     marks = rep["term_marks"]
     rows = [(t, m) for t, m in marks.items()
@@ -622,7 +642,7 @@ def _timeline(rep):
         parts.append(f'<text x="{x}" y="18" text-anchor="middle" font-size="11" '
                      f'fill="var(--sub)">step {k + 1}</text>')
         parts.append(f'<text x="{x}" y="68" text-anchor="middle" font-size="11.5" '
-                     f'fill="var(--ink)">{esc(s["label"][:22])}</text>')
+                     f'fill="var(--ink)">{esc(s["label"][:18])}</text>')
     y = 100
     for t, m in rows:
         parts.append(f'<text x="4" y="{y + 4}" font-size="11.5" fill="var(--sub)">{esc(t[:14])}</text>')
@@ -752,22 +772,25 @@ def _claim_card(c):
 </div>"""
 
 
-def _run_section(rep, n_runs):
+def _run_section(rep, n_runs, embedded=False):
     counts = "".join(f'<span class="chip {VERDICT_STYLE.get(v, ("muted",))[0]}">{k} '
                      f'{esc(VERDICT_STYLE.get(v, (None, v))[1])}</span>'
                      for v, k in sorted(rep["verdict_counts"].items()))
     notes = "".join(f"<li>{esc(n)}</li>" for n in rep["notes"])
     title = f'<h2>Run {esc(rep["run_id"])}{" · " + esc(rep["label"]) if rep.get("label") else ""}</h2>' if n_runs > 1 else ""
-    return f"""
-{title}
-<div class="card hero">
+    hero = "" if embedded else f"""<div class="card hero">
   <div>{_donut(rep['trust_score'])}</div>
   <div>
     <div class="sub">Question · {esc(rep['model'] or 'unknown model')} · {len(rep['claims'])} claims</div>
     <div class="q">{esc(rep['question'])}</div>
     <div class="chips">{counts}</div>
   </div>
-</div>
+</div>"""
+    final = "" if embedded else f"""<h2>Final answer as given</h2>
+<div class="card"><pre>{esc(rep['answer'])}</pre></div>"""
+    return f"""
+{title}
+{hero}
 <h2>How the agent got there</h2>
 <div class="card">{_timeline(rep)}</div>
 <h2>Claims: pull each block, see if the tower stands</h2>
@@ -784,22 +807,25 @@ def _run_section(rep, n_runs):
   <span>⏱ written by the agent before any evidence contained it</span>
 </div>
 {''.join(_claim_card(c) for c in rep['claims'])}
-<h2>Final answer as given</h2>
-<div class="card"><pre>{esc(rep['answer'])}</pre></div>
+{final}
 <ul class="notes">{notes}</ul>
 """
 
 
-def render_html(reports, title="Jenga evidence report"):
+def render_html(reports, title="Jenga evidence report", embedded=False):
+    """Self-contained report page. embedded=True drops the title, score card
+    and answer (for showing inside the web app, which renders those itself)."""
     if isinstance(reports, dict):
         reports = [reports]
-    body = "".join(_run_section(r, len(reports)) for r in reports) or \
+    head = "" if embedded else (
+        f"<h1>{esc(title)}</h1>\n<div class=\"sub\">Post-rationalisation check: does each "
+        "citation carry its claim, and did the agent use it?</div>")
+    body = "".join(_run_section(r, len(reports), embedded) for r in reports) or \
         '<div class="card">No completed runs found in this log.</div>'
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{esc(title)}</title><style>{CSS}</style></head><body><div class="wrap">
-<h1>{esc(title)}</h1>
-<div class="sub">Post-rationalisation check: does each citation carry its claim, and did the agent use it?</div>
+<title>{esc(title)}</title><style>{CSS}</style></head><body><div class="wrap{' embedded' if embedded else ''}">
+{head}
 {body}
 </div></body></html>"""
 
@@ -836,12 +862,6 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Jenga post-rationalisation analysis of agent logs")
     ap.add_argument("logs", nargs="+", help="agent log file(s)")
     ap.add_argument("--out", default="out", help="output directory")
-    ap.add_argument("--replay", action="store_true",
-                    help="run causal source-removal and planted-value replays (needs GROQ_API_KEY)")
-    ap.add_argument("--files-dir", default=None, help="PDF folder for replays (default: ./ai_files)")
-    ap.add_argument("--plant", action="append", default=[],
-                    help="override a planted value, e.g. --plant Python=Ruby")
-    ap.add_argument("--samples", type=int, default=1, help="replay runs per condition")
     a = ap.parse_args(argv)
 
     reports = []
@@ -849,12 +869,6 @@ def main(argv=None):
         reports += analyse_log_text(Path(p).read_text(encoding="utf-8"))
     if not reports:
         sys.exit("No completed runs found.")
-
-    if a.replay:
-        from replay import replay_report
-        plants = dict(x.split("=", 1) for x in a.plant)
-        for r in reports:
-            replay_report(r, files_dir=a.files_dir, plant_overrides=plants, samples=a.samples)
 
     path = write_outputs(reports, a.out)
     for r in reports:

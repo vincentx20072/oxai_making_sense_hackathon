@@ -367,7 +367,7 @@ def make_client():
 
 def run_agent(question, *, files_dir=FILES_DIR, hidden_lines=None, plants=None,
               log_file=LOG_FILE, runs_dir=RUNS_DIR, write_files=True,
-              client=None, model=MODEL, temperature=None, label=None):
+              client=None, model=MODEL, temperature=None, label=None, run_id=None):
     """
     Run one agent episode.  Returns a dict with the answer, the selected
     evidence, the run id and the complete log text of this run (which is
@@ -375,7 +375,7 @@ def run_agent(question, *, files_dir=FILES_DIR, hidden_lines=None, plants=None,
     """
     client = client or make_client()
     store = DocumentStore(files_dir, hidden_lines, plants)
-    rec = Recorder(log_file, runs_dir, write_files=write_files)
+    rec = Recorder(log_file, runs_dir, run_id=run_id, write_files=write_files)
     tools = Tools(store, rec)
 
     rec.log("")
