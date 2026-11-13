@@ -1,0 +1,798 @@
+[
+  {
+    "run_id": "4796d8c330b4",
+    "question": "Is Jake Ryan a good fit for a software engineer in python?",
+    "model": "openai/gpt-oss-120b",
+    "label": null,
+    "answer": "- Jake Ryan has solid Python backend development experience, having built a REST API with FastAPI and a full‑stack web application using Flask, React, PostgreSQL, and Docker【resume.pdf, P1‑L11-L13】.  \n- His technical‑skill section lists Python as a core language and includes related frameworks (Flask, FastAPI) and libraries (pandas, NumPy, Matplotlib)【resume.pdf, P1‑L38-L40】.  \n- The “Gitlytics” project demonstrates practical use of Python/Flask to create a production‑ready web service with GitHub OAuth, data visualization, and asynchronous processing via Celery/Redis【resume.pdf, P1‑L28-L33】.  \n\n**Conclusion:** Based on multiple entries that show Python programming, web‑development frameworks, data‑analysis libraries, and hands‑on project work, Jake Ryan appears to be a strong fit for a software‑engineer role focused on Python.",
+    "question_terms": [
+      "engineer",
+      "fit",
+      "good",
+      "jake",
+      "python",
+      "ryan",
+      "software"
+    ],
+    "files": [
+      "resume.pdf"
+    ],
+    "steps": [
+      {
+        "idx": 1,
+        "tool": "think",
+        "label": "agent text"
+      },
+      {
+        "idx": 2,
+        "tool": "list_files",
+        "label": "list files"
+      },
+      {
+        "idx": 5,
+        "tool": "think",
+        "label": "agent text"
+      },
+      {
+        "idx": 6,
+        "tool": "get_pdf_info",
+        "label": "get_pdf_info"
+      },
+      {
+        "idx": 9,
+        "tool": "think",
+        "label": "agent text"
+      },
+      {
+        "idx": 10,
+        "tool": "read_pdf_pages",
+        "label": "read p1"
+      },
+      {
+        "idx": 13,
+        "tool": "think",
+        "label": "agent text"
+      },
+      {
+        "idx": 14,
+        "tool": "select_evidence",
+        "label": "select p1 L11-13"
+      },
+      {
+        "idx": 17,
+        "tool": "think",
+        "label": "agent text"
+      },
+      {
+        "idx": 18,
+        "tool": "select_evidence",
+        "label": "select p1 L38-40"
+      },
+      {
+        "idx": 21,
+        "tool": "think",
+        "label": "agent text"
+      },
+      {
+        "idx": 22,
+        "tool": "answer",
+        "label": "final answer"
+      }
+    ],
+    "term_marks": {
+      "jake": {
+        "evidence_step": 5,
+        "own_step": null,
+        "early": false
+      },
+      "ryan": {
+        "evidence_step": 5,
+        "own_step": null,
+        "early": false
+      },
+      "python": {
+        "evidence_step": 5,
+        "own_step": null,
+        "early": false
+      },
+      "rest": {
+        "evidence_step": 5,
+        "own_step": 6,
+        "early": false
+      },
+      "api": {
+        "evidence_step": 5,
+        "own_step": 6,
+        "early": false
+      },
+      "fastapi": {
+        "evidence_step": 5,
+        "own_step": 6,
+        "early": false
+      },
+      "flask": {
+        "evidence_step": 5,
+        "own_step": 6,
+        "early": false
+      },
+      "react": {
+        "evidence_step": 5,
+        "own_step": null,
+        "early": false
+      },
+      "postgresql": {
+        "evidence_step": 5,
+        "own_step": null,
+        "early": false
+      },
+      "docker": {
+        "evidence_step": 5,
+        "own_step": 8,
+        "early": false
+      },
+      "his": {
+        "evidence_step": null,
+        "own_step": 2,
+        "early": true
+      },
+      "numpy": {
+        "evidence_step": 5,
+        "own_step": 6,
+        "early": false
+      },
+      "matplotlib": {
+        "evidence_step": 5,
+        "own_step": null,
+        "early": false
+      },
+      "gitlytics": {
+        "evidence_step": 5,
+        "own_step": 10,
+        "early": false
+      },
+      "github": {
+        "evidence_step": 5,
+        "own_step": null,
+        "early": false
+      },
+      "oauth": {
+        "evidence_step": 5,
+        "own_step": null,
+        "early": false
+      },
+      "celery": {
+        "evidence_step": 5,
+        "own_step": null,
+        "early": false
+      },
+      "redis": {
+        "evidence_step": 5,
+        "own_step": null,
+        "early": false
+      },
+      "conclusion": {
+        "evidence_step": null,
+        "own_step": null,
+        "early": false
+      },
+      "fit": {
+        "evidence_step": null,
+        "own_step": null,
+        "early": false
+      }
+    },
+    "selected_evidence": [
+      {
+        "file": "resume.pdf",
+        "page": 1,
+        "start": 11,
+        "end": 13,
+        "purpose": "Python backend experience"
+      },
+      {
+        "file": "resume.pdf",
+        "page": 1,
+        "start": 38,
+        "end": 40,
+        "purpose": "Python language and libraries"
+      }
+    ],
+    "claims": [
+      {
+        "id": "c1",
+        "text": "Jake Ryan has solid Python backend development experience, having built a REST API with FastAPI and a full-stack web application using Flask, React, PostgreSQL, and Docker",
+        "citations": [
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "start": 11,
+            "end": 13,
+            "raw": "【resume.pdf, P1-L11-L13】"
+          }
+        ],
+        "verdict": "post-rationalisation risk",
+        "score": 68,
+        "deductions": [
+          {
+            "reason": "Question focus not in the cited lines: jake, ryan, python (link supplied by the model's prior)",
+            "points": 25
+          },
+          {
+            "reason": "1 cited line(s) are dead weight",
+            "points": 7
+          }
+        ],
+        "E_lex": 0.7,
+        "precision": 0.67,
+        "terms": [
+          {
+            "term": "jake",
+            "support": "elsewhere in sources",
+            "in_question": true,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "ryan",
+            "support": "elsewhere in sources",
+            "in_question": true,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "python",
+            "support": "elsewhere in sources",
+            "in_question": true,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "rest",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": 6,
+            "first_own_source": "reasoning",
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "api",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": 6,
+            "first_own_source": "reasoning",
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "fastapi",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": 6,
+            "first_own_source": "reasoning",
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "flask",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": 6,
+            "first_own_source": "reasoning",
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "react",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "postgresql",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "docker",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": 8,
+            "first_own_source": "reasoning",
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          }
+        ],
+        "bridging_terms": [
+          "jake",
+          "ryan",
+          "python"
+        ],
+        "timing_terms": [],
+        "cited_lines": [
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "line": 11,
+            "text": "• Developed a REST API using FastAPI and PostgreSQL to store data from learning management systems",
+            "status": "opened",
+            "selected": true,
+            "terms": [
+              "rest",
+              "api",
+              "fastapi",
+              "postgresql"
+            ],
+            "unique_terms": [
+              "rest",
+              "api",
+              "fastapi"
+            ],
+            "role": "load-bearing"
+          },
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "line": 12,
+            "text": "• Developed a full-stack web application using Flask, React, PostgreSQL and Docker to analyze GitHub data",
+            "status": "opened",
+            "selected": true,
+            "terms": [
+              "flask",
+              "react",
+              "postgresql",
+              "docker"
+            ],
+            "unique_terms": [
+              "flask",
+              "react",
+              "docker"
+            ],
+            "role": "load-bearing"
+          },
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "line": 13,
+            "text": "• Explored ways to visualize GitHub collaboration in a classroom setting",
+            "status": "opened",
+            "selected": true,
+            "terms": [],
+            "unique_terms": [],
+            "role": "dead weight"
+          }
+        ],
+        "causal": null
+      },
+      {
+        "id": "c2",
+        "text": "His technical-skill section lists Python as a core language and includes related frameworks (Flask, FastAPI) and libraries (pandas, NumPy, Matplotlib)",
+        "citations": [
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "start": 38,
+            "end": 40,
+            "raw": "【resume.pdf, P1-L38-L40】"
+          }
+        ],
+        "verdict": "post-rationalised",
+        "score": 33,
+        "deductions": [
+          {
+            "reason": "Asserted before any evidence contained it: his",
+            "points": 40
+          },
+          {
+            "reason": "Not found in any source the agent saw: his",
+            "points": 10
+          },
+          {
+            "reason": "Only supported outside the citation: numpy, matplotlib",
+            "points": 10
+          },
+          {
+            "reason": "1 cited line(s) are dead weight",
+            "points": 7
+          }
+        ],
+        "E_lex": 0.5,
+        "precision": 0.67,
+        "terms": [
+          {
+            "term": "his",
+            "support": "not in any source",
+            "in_question": false,
+            "first_own_step": 2,
+            "first_own_source": "reasoning",
+            "first_evidence_step": null,
+            "asserted_before_seen": true
+          },
+          {
+            "term": "python",
+            "support": "cited",
+            "in_question": true,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "flask",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": 6,
+            "first_own_source": "reasoning",
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "fastapi",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": 6,
+            "first_own_source": "reasoning",
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "numpy",
+            "support": "elsewhere in sources",
+            "in_question": false,
+            "first_own_step": 6,
+            "first_own_source": "reasoning",
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "matplotlib",
+            "support": "elsewhere in sources",
+            "in_question": false,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          }
+        ],
+        "bridging_terms": [],
+        "timing_terms": [
+          "his"
+        ],
+        "cited_lines": [
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "line": 38,
+            "text": "Technical Skills",
+            "status": "opened",
+            "selected": true,
+            "terms": [],
+            "unique_terms": [],
+            "role": "dead weight"
+          },
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "line": 39,
+            "text": "Languages: Java, Python, C/C++, SQL (Postgres), JavaScript, HTML/CSS, R",
+            "status": "opened",
+            "selected": true,
+            "terms": [
+              "python"
+            ],
+            "unique_terms": [
+              "python"
+            ],
+            "role": "load-bearing"
+          },
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "line": 40,
+            "text": "Frameworks: React, Node.js, Flask, JUnit, WordPress, Material-UI, FastAPI",
+            "status": "opened",
+            "selected": true,
+            "terms": [
+              "flask",
+              "fastapi"
+            ],
+            "unique_terms": [
+              "flask",
+              "fastapi"
+            ],
+            "role": "load-bearing"
+          }
+        ],
+        "causal": null
+      },
+      {
+        "id": "c3",
+        "text": "The “Gitlytics” project demonstrates practical use of Python/Flask to create a production-ready web service with GitHub OAuth, data visualization, and asynchronous processing via Celery/Redis",
+        "citations": [
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "start": 28,
+            "end": 33,
+            "raw": "【resume.pdf, P1-L28-L33】"
+          }
+        ],
+        "verdict": "grounded",
+        "score": 92,
+        "deductions": [
+          {
+            "reason": "1 cited line(s) are dead weight",
+            "points": 3
+          },
+          {
+            "reason": "6 cited line(s) were not selected as evidence",
+            "points": 5
+          }
+        ],
+        "E_lex": 1.0,
+        "precision": 0.83,
+        "terms": [
+          {
+            "term": "gitlytics",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": 10,
+            "first_own_source": "reasoning",
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "python",
+            "support": "cited",
+            "in_question": true,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "flask",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": 6,
+            "first_own_source": "reasoning",
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "github",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "oauth",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "celery",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "redis",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          }
+        ],
+        "bridging_terms": [],
+        "timing_terms": [],
+        "cited_lines": [
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "line": 28,
+            "text": "Gitlytics | Python, Flask, React, PostgreSQL, Docker June 2020 – Present",
+            "status": "opened",
+            "selected": false,
+            "terms": [
+              "gitlytics",
+              "python",
+              "flask"
+            ],
+            "unique_terms": [
+              "gitlytics",
+              "python"
+            ],
+            "role": "load-bearing"
+          },
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "line": 29,
+            "text": "• Developed a full-stack web application using with Flask serving a REST API with React as the frontend",
+            "status": "opened",
+            "selected": false,
+            "terms": [
+              "flask"
+            ],
+            "unique_terms": [],
+            "role": "supporting"
+          },
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "line": 30,
+            "text": "• Implemented GitHub OAuth to get data from user’s repositories",
+            "status": "opened",
+            "selected": false,
+            "terms": [
+              "github",
+              "oauth"
+            ],
+            "unique_terms": [
+              "oauth"
+            ],
+            "role": "load-bearing"
+          },
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "line": 31,
+            "text": "• Visualized GitHub data to show collaboration",
+            "status": "opened",
+            "selected": false,
+            "terms": [
+              "github"
+            ],
+            "unique_terms": [],
+            "role": "supporting"
+          },
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "line": 32,
+            "text": "• Used Celery and Redis for asynchronous tasks",
+            "status": "opened",
+            "selected": false,
+            "terms": [
+              "celery",
+              "redis"
+            ],
+            "unique_terms": [
+              "celery",
+              "redis"
+            ],
+            "role": "load-bearing"
+          },
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "line": 33,
+            "text": "Simple Paintball | Spigot API, Java, Maven, TravisCI, Git May 2018 – May 2020",
+            "status": "opened",
+            "selected": false,
+            "terms": [],
+            "unique_terms": [],
+            "role": "dead weight"
+          }
+        ],
+        "causal": null
+      },
+      {
+        "id": "c4",
+        "text": "**Conclusion:** Based on multiple entries that show Python programming, web-development frameworks, data-analysis libraries, and hands-on project work, Jake Ryan appears to be a strong fit for a software-engineer role focused on Python",
+        "citations": [],
+        "verdict": "uncited",
+        "score": 5,
+        "deductions": [
+          {
+            "reason": "No citation: the claim cannot be traced to a source",
+            "points": 50
+          },
+          {
+            "reason": "Question focus not in the cited lines: python, jake, ryan, fit (link supplied by the model's prior)",
+            "points": 25
+          },
+          {
+            "reason": "Not found in any source the agent saw: conclusion, fit",
+            "points": 20
+          }
+        ],
+        "E_lex": 0.0,
+        "precision": null,
+        "terms": [
+          {
+            "term": "conclusion",
+            "support": "not in any source",
+            "in_question": false,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": null,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "python",
+            "support": "elsewhere in sources",
+            "in_question": true,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "jake",
+            "support": "elsewhere in sources",
+            "in_question": true,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "ryan",
+            "support": "elsewhere in sources",
+            "in_question": true,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 5,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "fit",
+            "support": "not in any source",
+            "in_question": true,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": null,
+            "asserted_before_seen": false
+          }
+        ],
+        "bridging_terms": [
+          "python",
+          "jake",
+          "ryan",
+          "fit"
+        ],
+        "timing_terms": [],
+        "cited_lines": [],
+        "causal": null
+      }
+    ],
+    "verdict_counts": {
+      "post-rationalisation risk": 1,
+      "post-rationalised": 1,
+      "grounded": 1,
+      "uncited": 1
+    },
+    "trust_score": 50,
+    "trace_has_agent_text": true,
+    "notes": [
+      "Static signals are lexical. They show whether the cited text can carry the claim, not whether the agent causally relied on it; run the replay (--replay) for causal labels."
+    ]
+  }
+]

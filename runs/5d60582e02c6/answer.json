@@ -1,0 +1,25 @@
+{
+  "run_id": "5d60582e02c6",
+  "question": "Is Jake Ryan a good fit for a software engineer in python?",
+  "answer": "- Jake Ryan lists **Python** among his programming languages, indicating he has formal knowledge of the language【resume.pdf, P1‑L39-L40】.  \n- He has **hands‑on Python experience** building a full‑stack web application (Gitlytics) with Flask, a REST API, OAuth integration, data visualisation, and asynchronous task handling using Celery and Redis【resume.pdf, P1‑L28-L32】.  \n- His technical skill set also includes related Python libraries (pandas, NumPy, Matplotlib) and frameworks (Flask, FastAPI), showing familiarity with the ecosystem commonly used in Python software engineering【resume.pdf, P1‑L39-L41】.  \n\n**Conclusion:** Based on his demonstrated Python proficiency, relevant project experience, and familiarity with key Python tools and frameworks, Jake Ryan appears to be a strong fit for a software‑engineer role focused on Python development.",
+  "selected_evidence": [
+    {
+      "filename": "resume.pdf",
+      "page": 1,
+      "start_line": 28,
+      "end_line": 32,
+      "purpose": "demonstrate Python web development experience",
+      "text": "[P1-L28] Gitlytics | Python, Flask, React, PostgreSQL, Docker June 2020 – Present\n[P1-L29] • Developed a full-stack web application using with Flask serving a REST API with React as the frontend\n[P1-L30] • Implemented GitHub OAuth to get data from user’s repositories\n[P1-L31] • Visualized GitHub data to show collaboration\n[P1-L32] • Used Celery and Redis for asynchronous tasks"
+    },
+    {
+      "filename": "resume.pdf",
+      "page": 1,
+      "start_line": 39,
+      "end_line": 40,
+      "purpose": "list Python language skill",
+      "text": "[P1-L39] Languages: Java, Python, C/C++, SQL (Postgres), JavaScript, HTML/CSS, R\n[P1-L40] Frameworks: React, Node.js, Flask, JUnit, WordPress, Material-UI, FastAPI"
+    }
+  ],
+  "plants": {},
+  "label": "remove P1-L11-13 for c1"
+}

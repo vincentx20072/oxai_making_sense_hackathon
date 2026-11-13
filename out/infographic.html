@@ -1,0 +1,150 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Jenga evidence report</title><style>
+:root{--bg:#f7f6f3;--card:#fff;--ink:#1d1d1f;--sub:#5f6368;--line:#e3e1dc;
+--ok:#1a7f5a;--ok-bg:#e3f4ec;--warn:#a15c00;--warn-bg:#fdf0dc;--bad:#b3261e;--bad-bg:#fbe5e3;
+--muted:#6b6b6b;--muted-bg:#ececec;--acc:#3b5bdb;--acc2:#9aaef0;--dead:#d6d3cc}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141416;--card:#1f1f23;
+--ink:#ececf0;--sub:#a3a3ad;--line:#33333a;--ok:#5fd3a2;--ok-bg:#16352a;--warn:#f0b35c;
+--warn-bg:#3a2a12;--bad:#ff8a80;--bad-bg:#3d1c1a;--muted:#b0b0b0;--muted-bg:#2c2c30;
+--acc:#8ea6ff;--acc2:#4a5a99;--dead:#3c3a36}}
+:root[data-theme="dark"]{--bg:#141416;--card:#1f1f23;--ink:#ececf0;--sub:#a3a3ad;--line:#33333a;
+--ok:#5fd3a2;--ok-bg:#16352a;--warn:#f0b35c;--warn-bg:#3a2a12;--bad:#ff8a80;--bad-bg:#3d1c1a;
+--muted:#b0b0b0;--muted-bg:#2c2c30;--acc:#8ea6ff;--acc2:#4a5a99;--dead:#3c3a36}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);
+font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1040px;margin:0 auto;padding:28px 16px 60px}
+h1{font-size:26px;margin:0 0 4px}h2{font-size:18px;margin:28px 0 10px}
+.sub{color:var(--sub);font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+.hero{display:grid;grid-template-columns:170px 1fr;gap:22px;align-items:center}
+@media (max-width:640px){.hero{grid-template-columns:1fr}.claim{grid-template-columns:1fr!important}}
+.q{font-size:17px;font-weight:600;margin:4px 0 10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border-radius:999px;padding:3px 10px;font-size:12.5px;font-weight:600;white-space:nowrap}
+.ok{color:var(--ok);background:var(--ok-bg)}.warn{color:var(--warn);background:var(--warn-bg)}
+.bad{color:var(--bad);background:var(--bad-bg)}.muted{color:var(--muted);background:var(--muted-bg)}
+.timeline{overflow-x:auto;padding-bottom:6px}
+.claim{display:grid;grid-template-columns:230px 1fr;gap:20px;margin-top:14px}
+.ctext{font-size:15.5px;font-weight:600;margin:6px 0 10px}
+.metric{display:grid;grid-template-columns:150px 1fr 44px;gap:8px;align-items:center;
+font-size:13px;margin:5px 0}
+.bar{height:9px;background:var(--muted-bg);border-radius:6px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--acc);border-radius:6px}
+ul.ded{margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--sub)}
+.term{border:1px solid var(--line);border-radius:7px;padding:2px 8px;font-size:12.5px}
+.t-cited{border-color:var(--ok);color:var(--ok)}.t-else{border-color:var(--warn);color:var(--warn)}
+.t-none{border-color:var(--bad);color:var(--bad)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--sub);margin-top:8px}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:5px}
+.notes{font-size:13px;color:var(--sub)}
+details summary{cursor:pointer;color:var(--sub);font-size:13px;margin-top:10px}
+pre{white-space:pre-wrap;font-size:12.5px;background:var(--bg);padding:10px;border-radius:8px}
+.causal{margin-top:10px;border-top:1px dashed var(--line);padding-top:10px;font-size:13px}
+</style></head><body><div class="wrap">
+<h1>Jenga evidence report</h1>
+<div class="sub">Post-rationalisation check: does each citation carry its claim, and did the agent use it?</div>
+
+
+<div class="card hero">
+  <div><svg width="150" height="150" viewBox="0 0 150 150" role="img" aria-label="Trust score 50 out of 100"><circle cx="75" cy="75" r="58" fill="none" stroke="var(--muted-bg)" stroke-width="14"/><circle cx="75" cy="75" r="58" fill="none" stroke="var(--warn)" stroke-width="14" stroke-linecap="round" stroke-dasharray="182.2 364.4" transform="rotate(-90 75 75)"/><text x="75" y="80" text-anchor="middle" font-size="34" font-weight="700" fill="var(--ink)">50</text><text x="75" y="102" text-anchor="middle" font-size="11" fill="var(--sub)">trust / 100</text></svg></div>
+  <div>
+    <div class="sub">Question · openai/gpt-oss-120b · 4 claims</div>
+    <div class="q">Is Jake Ryan a good fit for a software engineer in python?</div>
+    <div class="chips"><span class="chip ok">1 Grounded</span><span class="chip warn">1 Post-rationalisation risk</span><span class="chip bad">1 Post-rationalised</span><span class="chip muted">1 Uncited</span></div>
+  </div>
+</div>
+<h2>How the agent got there</h2>
+<div class="card"><div class="timeline"><svg width="830" height="506" viewBox="0 0 830 506" role="img" aria-label="Timeline of agent steps"><line x1="110" y1="40" x2="750" y2="40" stroke="var(--line)" stroke-width="3"/><circle cx="110" cy="40" r="9" fill="var(--sub)"/><text x="110" y="18" text-anchor="middle" font-size="11" fill="var(--sub)">step 1</text><text x="110" y="68" text-anchor="middle" font-size="11.5" fill="var(--ink)">list files</text><circle cx="238" cy="40" r="9" fill="var(--sub)"/><text x="238" y="18" text-anchor="middle" font-size="11" fill="var(--sub)">step 2</text><text x="238" y="68" text-anchor="middle" font-size="11.5" fill="var(--ink)">get_pdf_info</text><circle cx="366" cy="40" r="9" fill="var(--acc)"/><text x="366" y="18" text-anchor="middle" font-size="11" fill="var(--sub)">step 3</text><text x="366" y="68" text-anchor="middle" font-size="11.5" fill="var(--ink)">read p1</text><circle cx="494" cy="40" r="9" fill="var(--ok)"/><text x="494" y="18" text-anchor="middle" font-size="11" fill="var(--sub)">step 4</text><text x="494" y="68" text-anchor="middle" font-size="11.5" fill="var(--ink)">select p1 L11-13</text><circle cx="622" cy="40" r="9" fill="var(--ok)"/><text x="622" y="18" text-anchor="middle" font-size="11" fill="var(--sub)">step 5</text><text x="622" y="68" text-anchor="middle" font-size="11.5" fill="var(--ink)">select p1 L38-40</text><circle cx="750" cy="40" r="9" fill="var(--ink)"/><text x="750" y="18" text-anchor="middle" font-size="11" fill="var(--sub)">step 6</text><text x="750" y="68" text-anchor="middle" font-size="11.5" fill="var(--ink)">final answer</text><text x="4" y="104" font-size="11.5" fill="var(--sub)">jake</text><rect x="360" y="94" width="12" height="12" rx="3" fill="var(--ok)"><title>first seen in a tool result</title></rect><text x="4" y="126" font-size="11.5" fill="var(--sub)">ryan</text><rect x="360" y="116" width="12" height="12" rx="3" fill="var(--ok)"><title>first seen in a tool result</title></rect><text x="4" y="148" font-size="11.5" fill="var(--sub)">python</text><rect x="360" y="138" width="12" height="12" rx="3" fill="var(--ok)"><title>first seen in a tool result</title></rect><text x="4" y="170" font-size="11.5" fill="var(--sub)">rest</text><rect x="360" y="160" width="12" height="12" rx="3" fill="var(--ok)"><title>first seen in a tool result</title></rect><circle cx="494" cy="166" r="6" fill="none" stroke="var(--acc2)" stroke-width="2.5"><title>first written by the agent</title></circle><text x="4" y="192" font-size="11.5" fill="var(--sub)">api</text><rect x="360" y="182" width="12" height="12" rx="3" fill="var(--ok)"><title>first seen in a tool result</title></rect><circle cx="494" cy="188" r="6" fill="none" stroke="var(--acc2)" stroke-width="2.5"><title>first written by the agent</title></circle><text x="4" y="214" font-size="11.5" fill="var(--sub)">fastapi</text><rect x="360" y="204" width="12" height="12" rx="3" fill="var(--ok)"><title>first seen in a tool result</title></rect><circle cx="494" cy="210" r="6" fill="none" stroke="var(--acc2)" stroke-width="2.5"><title>first written by the agent</title></circle><text x="4" y="236" font-size="11.5" fill="var(--sub)">flask</text><rect x="360" y="226" width="12" height="12" rx="3" fill="var(--ok)"><title>first seen in a tool result</title></rect><circle cx="494" cy="232" r="6" fill="none" stroke="var(--acc2)" stroke-width="2.5"><title>first written by the agent</title></circle><text x="4" y="258" font-size="11.5" fill="var(--sub)">react</text><rect x="360" y="248" width="12" height="12" rx="3" fill="var(--ok)"><title>first seen in a tool result</title></rect><text x="4" y="280" font-size="11.5" fill="var(--sub)">postgresql</text><rect x="360" y="270" width="12" height="12" rx="3" fill="var(--ok)"><title>first seen in a tool result</title></rect><text x="4" y="302" font-size="11.5" fill="var(--sub)">docker</text><rect x="360" y="292" width="12" height="12" rx="3" fill="var(--ok)"><title>first seen in a tool result</title></rect><circle cx="622" cy="298" r="6" fill="none" stroke="var(--acc2)" stroke-width="2.5"><title>first written by the agent</title></circle><text x="4" y="324" font-size="11.5" fill="var(--sub)">his</text><circle cx="238" cy="320" r="6" fill="none" stroke="var(--bad)" stroke-width="2.5"><title>first written by the agent</title></circle><text x="4" y="346" font-size="11.5" fill="var(--sub)">numpy</text><rect x="360" y="336" width="12" height="12" rx="3" fill="var(--ok)"><title>first seen in a tool result</title></rect><circle cx="494" cy="342" r="6" fill="none" stroke="var(--acc2)" stroke-width="2.5"><title>first written by the agent</title></circle><text x="4" y="368" font-size="11.5" fill="var(--sub)">matplotlib</text><rect x="360" y="358" width="12" height="12" rx="3" fill="var(--ok)"><title>first seen in a tool result</title></rect><text x="4" y="390" font-size="11.5" fill="var(--sub)">gitlytics</text><rect x="360" y="380" width="12" height="12" rx="3" fill="var(--ok)"><title>first seen in a tool result</title></rect><circle cx="750" cy="386" r="6" fill="none" stroke="var(--acc2)" stroke-width="2.5"><title>first written by the agent</title></circle><text x="4" y="412" font-size="11.5" fill="var(--sub)">github</text><rect x="360" y="402" width="12" height="12" rx="3" fill="var(--ok)"><title>first seen in a tool result</title></rect><text x="4" y="434" font-size="11.5" fill="var(--sub)">oauth</text><rect x="360" y="424" width="12" height="12" rx="3" fill="var(--ok)"><title>first seen in a tool result</title></rect><text x="4" y="456" font-size="11.5" fill="var(--sub)">celery</text><rect x="360" y="446" width="12" height="12" rx="3" fill="var(--ok)"><title>first seen in a tool result</title></rect><text x="4" y="478" font-size="11.5" fill="var(--sub)">redis</text><rect x="360" y="468" width="12" height="12" rx="3" fill="var(--ok)"><title>first seen in a tool result</title></rect></svg></div><div class="legend"><span><i class="sw" style="background:var(--ok)"></i>value first appears in evidence</span><span><i class="sw" style="border:2.5px solid var(--acc2);border-radius:50%"></i>agent writes it after seeing it</span><span><i class="sw" style="border:2.5px solid var(--bad);border-radius:50%"></i>agent writes it BEFORE any evidence (searching to confirm)</span></div></div>
+<h2>Claims: pull each block, see if the tower stands</h2>
+<div class="legend">
+  <span><i class="sw" style="background:var(--acc)"></i>load-bearing line (only source of a claim term)</span>
+  <span><i class="sw" style="background:var(--acc2)"></i>supporting (term also in another cited line)</span>
+  <span><i class="sw" style="background:var(--dead)"></i>dead weight (cited, supplies nothing)</span>
+  <span><i class="sw" style="border:2px dashed var(--bad)"></i>phantom (never shown to agent)</span>
+</div>
+<div class="legend">
+  <span><span class="term t-cited">term</span> in cited lines</span>
+  <span><span class="term t-else">term</span> only elsewhere in sources</span>
+  <span><span class="term t-none">term</span> in no source (model prior)</span>
+  <span>⏱ written by the agent before any evidence contained it</span>
+</div>
+
+<div class="card claim">
+  <div><svg width="210" height="135" viewBox="0 0 210 135" role="img" aria-label="Citation tower"><g><title>P1-L11 (load-bearing, opened): • Developed a REST API using FastAPI and PostgreSQL to store data from learning management systems</title><rect x="12" y="93" width="178" height="30" rx="4" fill="var(--acc)"/><text x="22" y="112" font-size="11" fill="var(--card)" font-weight="600">L11</text><text x="50" y="112" font-size="10.5" fill="var(--card)">• Developed a REST API u</text></g><g><title>P1-L12 (load-bearing, opened): • Developed a full-stack web application using Flask, React, PostgreSQL and Docker to analyze GitHub data</title><rect x="20" y="58" width="178" height="30" rx="4" fill="var(--acc)"/><text x="30" y="77" font-size="11" fill="var(--card)" font-weight="600">L12</text><text x="58" y="77" font-size="10.5" fill="var(--card)">• Developed a full-stack</text></g><g><title>P1-L13 (dead weight, opened): • Explored ways to visualize GitHub collaboration in a classroom setting</title><rect x="12" y="23" width="178" height="30" rx="4" fill="var(--dead)"/><text x="22" y="42" font-size="11" fill="var(--sub)" font-weight="600">L13</text><text x="50" y="42" font-size="10.5" fill="var(--sub)">• Explored ways to visua</text></g><rect x="4" y="125" width="202" height="6" rx="3" fill="var(--line)"/></svg></div>
+  <div>
+    <div class="chips"><span class="chip warn">Post-rationalisation risk</span>
+      <span class="chip muted">score 68</span>
+      <span class="chip muted">P1-L11, P1-L12, P1-L13</span></div>
+    <div class="ctext">Jake Ryan has solid Python backend development experience, having built a REST API with FastAPI and a full-stack web application using Flask, React, PostgreSQL, and Docker</div>
+    <div class="chips" style="margin-bottom:8px"><span class="term t-else" title="elsewhere in sources">jake</span><span class="term t-else" title="elsewhere in sources">ryan</span><span class="term t-else" title="elsewhere in sources">python</span><span class="term t-cited" title="cited">rest</span><span class="term t-cited" title="cited">api</span><span class="term t-cited" title="cited">fastapi</span><span class="term t-cited" title="cited">flask</span><span class="term t-cited" title="cited">react</span><span class="term t-cited" title="cited">postgresql</span><span class="term t-cited" title="cited">docker</span></div>
+    <div class="metric"><span title="Share of the claim&#x27;s specific terms found in the cited lines">Evidence share (E_lex)</span><div class="bar"><i style="width:70%"></i></div><b>0.70</b></div>
+    <div class="metric"><span title="Share of cited lines that contribute any claim term">Citation precision</span><div class="bar"><i style="width:67%"></i></div><b>0.67</b></div>
+    <ul class="ded"><li>&minus;25: Question focus not in the cited lines: jake, ryan, python (link supplied by the model&#x27;s prior)</li><li>&minus;7: 1 cited line(s) are dead weight</li></ul>
+    
+    <details><summary>Cited lines</summary><pre>P1-L11 [load-bearing; opened] • Developed a REST API using FastAPI and PostgreSQL to store data from learning management systems
+P1-L12 [load-bearing; opened] • Developed a full-stack web application using Flask, React, PostgreSQL and Docker to analyze GitHub data
+P1-L13 [dead weight; opened] • Explored ways to visualize GitHub collaboration in a classroom setting</pre></details>
+  </div>
+</div>
+<div class="card claim">
+  <div><svg width="210" height="135" viewBox="0 0 210 135" role="img" aria-label="Citation tower"><g><title>P1-L38 (dead weight, opened): Technical Skills</title><rect x="12" y="93" width="178" height="30" rx="4" fill="var(--dead)"/><text x="22" y="112" font-size="11" fill="var(--sub)" font-weight="600">L38</text><text x="50" y="112" font-size="10.5" fill="var(--sub)">Technical Skills</text></g><g><title>P1-L39 (load-bearing, opened): Languages: Java, Python, C/C++, SQL (Postgres), JavaScript, HTML/CSS, R</title><rect x="20" y="58" width="178" height="30" rx="4" fill="var(--acc)"/><text x="30" y="77" font-size="11" fill="var(--card)" font-weight="600">L39</text><text x="58" y="77" font-size="10.5" fill="var(--card)">Languages: Java, Python,</text></g><g><title>P1-L40 (load-bearing, opened): Frameworks: React, Node.js, Flask, JUnit, WordPress, Material-UI, FastAPI</title><rect x="12" y="23" width="178" height="30" rx="4" fill="var(--acc)"/><text x="22" y="42" font-size="11" fill="var(--card)" font-weight="600">L40</text><text x="50" y="42" font-size="10.5" fill="var(--card)">Frameworks: React, Node.</text></g><rect x="4" y="125" width="202" height="6" rx="3" fill="var(--line)"/></svg></div>
+  <div>
+    <div class="chips"><span class="chip bad">Post-rationalised</span>
+      <span class="chip muted">score 33</span>
+      <span class="chip muted">P1-L38, P1-L39, P1-L40</span></div>
+    <div class="ctext">His technical-skill section lists Python as a core language and includes related frameworks (Flask, FastAPI) and libraries (pandas, NumPy, Matplotlib)</div>
+    <div class="chips" style="margin-bottom:8px"><span class="term t-none" title="not in any source">his ⏱</span><span class="term t-cited" title="cited">python</span><span class="term t-cited" title="cited">flask</span><span class="term t-cited" title="cited">fastapi</span><span class="term t-else" title="elsewhere in sources">numpy</span><span class="term t-else" title="elsewhere in sources">matplotlib</span></div>
+    <div class="metric"><span title="Share of the claim&#x27;s specific terms found in the cited lines">Evidence share (E_lex)</span><div class="bar"><i style="width:50%"></i></div><b>0.50</b></div>
+    <div class="metric"><span title="Share of cited lines that contribute any claim term">Citation precision</span><div class="bar"><i style="width:67%"></i></div><b>0.67</b></div>
+    <ul class="ded"><li>&minus;40: Asserted before any evidence contained it: his</li><li>&minus;10: Not found in any source the agent saw: his</li><li>&minus;10: Only supported outside the citation: numpy, matplotlib</li><li>&minus;7: 1 cited line(s) are dead weight</li></ul>
+    
+    <details><summary>Cited lines</summary><pre>P1-L38 [dead weight; opened] Technical Skills
+P1-L39 [load-bearing; opened] Languages: Java, Python, C/C++, SQL (Postgres), JavaScript, HTML/CSS, R
+P1-L40 [load-bearing; opened] Frameworks: React, Node.js, Flask, JUnit, WordPress, Material-UI, FastAPI</pre></details>
+  </div>
+</div>
+<div class="card claim">
+  <div><svg width="210" height="240" viewBox="0 0 210 240" role="img" aria-label="Citation tower"><g><title>P1-L28 (load-bearing, opened): Gitlytics | Python, Flask, React, PostgreSQL, Docker June 2020 – Present</title><rect x="12" y="198" width="178" height="30" rx="4" fill="var(--acc)"/><text x="22" y="217" font-size="11" fill="var(--card)" font-weight="600">L28</text><text x="50" y="217" font-size="10.5" fill="var(--card)">Gitlytics | Python, Flas</text></g><g><title>P1-L29 (supporting, opened): • Developed a full-stack web application using with Flask serving a REST API with React as the frontend</title><rect x="20" y="163" width="178" height="30" rx="4" fill="var(--acc2)"/><text x="30" y="182" font-size="11" fill="var(--ink)" font-weight="600">L29</text><text x="58" y="182" font-size="10.5" fill="var(--ink)">• Developed a full-stack</text></g><g><title>P1-L30 (load-bearing, opened): • Implemented GitHub OAuth to get data from user’s repositories</title><rect x="12" y="128" width="178" height="30" rx="4" fill="var(--acc)"/><text x="22" y="147" font-size="11" fill="var(--card)" font-weight="600">L30</text><text x="50" y="147" font-size="10.5" fill="var(--card)">• Implemented GitHub OAu</text></g><g><title>P1-L31 (supporting, opened): • Visualized GitHub data to show collaboration</title><rect x="20" y="93" width="178" height="30" rx="4" fill="var(--acc2)"/><text x="30" y="112" font-size="11" fill="var(--ink)" font-weight="600">L31</text><text x="58" y="112" font-size="10.5" fill="var(--ink)">• Visualized GitHub data</text></g><g><title>P1-L32 (load-bearing, opened): • Used Celery and Redis for asynchronous tasks</title><rect x="12" y="58" width="178" height="30" rx="4" fill="var(--acc)"/><text x="22" y="77" font-size="11" fill="var(--card)" font-weight="600">L32</text><text x="50" y="77" font-size="10.5" fill="var(--card)">• Used Celery and Redis </text></g><g><title>P1-L33 (dead weight, opened): Simple Paintball | Spigot API, Java, Maven, TravisCI, Git May 2018 – May 2020</title><rect x="20" y="23" width="178" height="30" rx="4" fill="var(--dead)"/><text x="30" y="42" font-size="11" fill="var(--sub)" font-weight="600">L33</text><text x="58" y="42" font-size="10.5" fill="var(--sub)">Simple Paintball | Spigo</text></g><rect x="4" y="230" width="202" height="6" rx="3" fill="var(--line)"/></svg></div>
+  <div>
+    <div class="chips"><span class="chip ok">Grounded</span>
+      <span class="chip muted">score 92</span>
+      <span class="chip muted">P1-L28, P1-L29, P1-L30, P1-L31, P1-L32, P1-L33</span></div>
+    <div class="ctext">The “Gitlytics” project demonstrates practical use of Python/Flask to create a production-ready web service with GitHub OAuth, data visualization, and asynchronous processing via Celery/Redis</div>
+    <div class="chips" style="margin-bottom:8px"><span class="term t-cited" title="cited">gitlytics</span><span class="term t-cited" title="cited">python</span><span class="term t-cited" title="cited">flask</span><span class="term t-cited" title="cited">github</span><span class="term t-cited" title="cited">oauth</span><span class="term t-cited" title="cited">celery</span><span class="term t-cited" title="cited">redis</span></div>
+    <div class="metric"><span title="Share of the claim&#x27;s specific terms found in the cited lines">Evidence share (E_lex)</span><div class="bar"><i style="width:100%"></i></div><b>1.00</b></div>
+    <div class="metric"><span title="Share of cited lines that contribute any claim term">Citation precision</span><div class="bar"><i style="width:83%"></i></div><b>0.83</b></div>
+    <ul class="ded"><li>&minus;3: 1 cited line(s) are dead weight</li><li>&minus;5: 6 cited line(s) were not selected as evidence</li></ul>
+    
+    <details><summary>Cited lines</summary><pre>P1-L28 [load-bearing; opened] Gitlytics | Python, Flask, React, PostgreSQL, Docker June 2020 – Present
+P1-L29 [supporting; opened] • Developed a full-stack web application using with Flask serving a REST API with React as the frontend
+P1-L30 [load-bearing; opened] • Implemented GitHub OAuth to get data from user’s repositories
+P1-L31 [supporting; opened] • Visualized GitHub data to show collaboration
+P1-L32 [load-bearing; opened] • Used Celery and Redis for asynchronous tasks
+P1-L33 [dead weight; opened] Simple Paintball | Spigot API, Java, Maven, TravisCI, Git May 2018 – May 2020</pre></details>
+  </div>
+</div>
+<div class="card claim">
+  <div><svg width="210" height="90" role="img" aria-label="No citations"><rect x="20" y="60" width="170" height="10" rx="2" fill="var(--line)"/><text x="105" y="45" text-anchor="middle" font-size="12" fill="var(--sub)">no blocks: uncited</text></svg></div>
+  <div>
+    <div class="chips"><span class="chip muted">Uncited</span>
+      <span class="chip muted">score 5</span>
+      <span class="chip muted">no citation</span></div>
+    <div class="ctext">**Conclusion:** Based on multiple entries that show Python programming, web-development frameworks, data-analysis libraries, and hands-on project work, Jake Ryan appears to be a strong fit for a software-engineer role focused on Python</div>
+    <div class="chips" style="margin-bottom:8px"><span class="term t-none" title="not in any source">conclusion</span><span class="term t-else" title="elsewhere in sources">python</span><span class="term t-else" title="elsewhere in sources">jake</span><span class="term t-else" title="elsewhere in sources">ryan</span><span class="term t-none" title="not in any source">fit</span></div>
+    <div class="metric"><span title="Share of the claim&#x27;s specific terms found in the cited lines">Evidence share (E_lex)</span><div class="bar"><i style="width:0%"></i></div><b>0.00</b></div>
+    <div class="metric"><span title="Share of cited lines that contribute any claim term">Citation precision</span><span class="sub">n/a</span><span></span></div>
+    <ul class="ded"><li>&minus;50: No citation: the claim cannot be traced to a source</li><li>&minus;25: Question focus not in the cited lines: python, jake, ryan, fit (link supplied by the model&#x27;s prior)</li><li>&minus;20: Not found in any source the agent saw: conclusion, fit</li></ul>
+    
+    <details><summary>Cited lines</summary><pre>(none)</pre></details>
+  </div>
+</div>
+<h2>Final answer as given</h2>
+<div class="card"><pre>- Jake Ryan has solid Python backend development experience, having built a REST API with FastAPI and a full‑stack web application using Flask, React, PostgreSQL, and Docker【resume.pdf, P1‑L11-L13】.  
+- His technical‑skill section lists Python as a core language and includes related frameworks (Flask, FastAPI) and libraries (pandas, NumPy, Matplotlib)【resume.pdf, P1‑L38-L40】.  
+- The “Gitlytics” project demonstrates practical use of Python/Flask to create a production‑ready web service with GitHub OAuth, data visualization, and asynchronous processing via Celery/Redis【resume.pdf, P1‑L28-L33】.  
+
+**Conclusion:** Based on multiple entries that show Python programming, web‑development frameworks, data‑analysis libraries, and hands‑on project work, Jake Ryan appears to be a strong fit for a software‑engineer role focused on Python.</pre></div>
+<ul class="notes"><li>Static signals are lexical. They show whether the cited text can carry the claim, not whether the agent causally relied on it; run the replay (--replay) for causal labels.</li></ul>
+
+</div></body></html>

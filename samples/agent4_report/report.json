@@ -1,0 +1,450 @@
+[
+  {
+    "run_id": "2026-11-13T14:36:08.839",
+    "question": "Based on my resumes, what evidence is there that I have experience with Python? Give a concise answer.",
+    "model": "openai/gpt-oss-120b",
+    "label": null,
+    "answer": "Your résumé demonstrates Python experience in several ways:\n\n* Python is listed among your known languages in the Technical Skills section【resume.pdf, P1-L39-L39】.  \n* You built the “Gitlytics” project using Python (alongside Flask, React, PostgreSQL, Docker)【resume.pdf, P1-L28-L30】.  \n* You developed a REST API with FastAPI—a Python web framework—showing hands‑on Python backend development【resume.pdf, P1-L11-L12】.",
+    "question_terms": [
+      "python"
+    ],
+    "files": [
+      "resume.pdf"
+    ],
+    "steps": [
+      {
+        "idx": 1,
+        "tool": "list_files",
+        "label": "list files"
+      },
+      {
+        "idx": 4,
+        "tool": "search_pdf",
+        "label": "search \"Python\""
+      },
+      {
+        "idx": 7,
+        "tool": "read_pdf_pages",
+        "label": "read p1"
+      },
+      {
+        "idx": 10,
+        "tool": "select_evidence",
+        "label": "select p1 L39-39"
+      },
+      {
+        "idx": 13,
+        "tool": "select_evidence",
+        "label": "select p1 L28-30"
+      },
+      {
+        "idx": 16,
+        "tool": "select_evidence",
+        "label": "select p1 L11-12"
+      },
+      {
+        "idx": 19,
+        "tool": "answer",
+        "label": "final answer"
+      }
+    ],
+    "term_marks": {
+      "python": {
+        "evidence_step": 1,
+        "own_step": null,
+        "early": false
+      },
+      "technical": {
+        "evidence_step": 2,
+        "own_step": null,
+        "early": false
+      },
+      "skills": {
+        "evidence_step": 2,
+        "own_step": null,
+        "early": false
+      },
+      "gitlytics": {
+        "evidence_step": 1,
+        "own_step": 4,
+        "early": false
+      },
+      "flask": {
+        "evidence_step": 1,
+        "own_step": null,
+        "early": false
+      },
+      "react": {
+        "evidence_step": 1,
+        "own_step": null,
+        "early": false
+      },
+      "postgresql": {
+        "evidence_step": 1,
+        "own_step": null,
+        "early": false
+      },
+      "docker": {
+        "evidence_step": 1,
+        "own_step": null,
+        "early": false
+      },
+      "rest": {
+        "evidence_step": 2,
+        "own_step": 5,
+        "early": false
+      },
+      "api": {
+        "evidence_step": 2,
+        "own_step": 5,
+        "early": false
+      },
+      "fastapi": {
+        "evidence_step": 2,
+        "own_step": 5,
+        "early": false
+      }
+    },
+    "selected_evidence": [
+      {
+        "file": "resume.pdf",
+        "page": 1,
+        "start": 39,
+        "end": 39,
+        "purpose": "Shows Python listed as a known programming language"
+      },
+      {
+        "file": "resume.pdf",
+        "page": 1,
+        "start": 28,
+        "end": 30,
+        "purpose": "Demonstrates Python use in a full‑stack project (Gitlytics)"
+      },
+      {
+        "file": "resume.pdf",
+        "page": 1,
+        "start": 11,
+        "end": 12,
+        "purpose": "Shows Python‑based FastAPI REST API development"
+      }
+    ],
+    "claims": [
+      {
+        "id": "c1",
+        "text": "Python is listed among your known languages in the Technical Skills section",
+        "citations": [
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "start": 39,
+            "end": 39,
+            "raw": "【resume.pdf, P1-L39-L39】"
+          }
+        ],
+        "verdict": "grounded",
+        "score": 90,
+        "deductions": [
+          {
+            "reason": "Only supported outside the citation: technical, skills",
+            "points": 10
+          }
+        ],
+        "E_lex": 0.33,
+        "precision": 1.0,
+        "terms": [
+          {
+            "term": "python",
+            "support": "cited",
+            "in_question": true,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 1,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "technical",
+            "support": "elsewhere in sources",
+            "in_question": false,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 2,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "skills",
+            "support": "elsewhere in sources",
+            "in_question": false,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 2,
+            "asserted_before_seen": false
+          }
+        ],
+        "bridging_terms": [],
+        "timing_terms": [],
+        "cited_lines": [
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "line": 39,
+            "text": "Languages: Java, Python, C/C++, SQL (Postgres), JavaScript, HTML/CSS, R",
+            "status": "opened",
+            "selected": true,
+            "terms": [
+              "python"
+            ],
+            "unique_terms": [
+              "python"
+            ],
+            "role": "load-bearing"
+          }
+        ],
+        "causal": null
+      },
+      {
+        "id": "c2",
+        "text": "You built the “Gitlytics” project using Python (alongside Flask, React, PostgreSQL, Docker)",
+        "citations": [
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "start": 28,
+            "end": 30,
+            "raw": "【resume.pdf, P1-L28-L30】"
+          }
+        ],
+        "verdict": "grounded",
+        "score": 93,
+        "deductions": [
+          {
+            "reason": "1 cited line(s) are dead weight",
+            "points": 7
+          }
+        ],
+        "E_lex": 1.0,
+        "precision": 0.67,
+        "terms": [
+          {
+            "term": "gitlytics",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": 4,
+            "first_own_source": "tool:select_evidence",
+            "first_evidence_step": 1,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "python",
+            "support": "cited",
+            "in_question": true,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 1,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "flask",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 1,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "react",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 1,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "postgresql",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 1,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "docker",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 1,
+            "asserted_before_seen": false
+          }
+        ],
+        "bridging_terms": [],
+        "timing_terms": [],
+        "cited_lines": [
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "line": 28,
+            "text": "Gitlytics | Python, Flask, React, PostgreSQL, Docker June 2020 – Present",
+            "status": "opened",
+            "selected": true,
+            "terms": [
+              "gitlytics",
+              "python",
+              "flask",
+              "react",
+              "postgresql",
+              "docker"
+            ],
+            "unique_terms": [
+              "gitlytics",
+              "python",
+              "postgresql",
+              "docker"
+            ],
+            "role": "load-bearing"
+          },
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "line": 29,
+            "text": "• Developed a full-stack web application using with Flask serving a REST API with React as the frontend",
+            "status": "opened",
+            "selected": true,
+            "terms": [
+              "flask",
+              "react"
+            ],
+            "unique_terms": [],
+            "role": "supporting"
+          },
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "line": 30,
+            "text": "• Implemented GitHub OAuth to get data from user’s repositories",
+            "status": "opened",
+            "selected": true,
+            "terms": [],
+            "unique_terms": [],
+            "role": "dead weight"
+          }
+        ],
+        "causal": null
+      },
+      {
+        "id": "c3",
+        "text": "You developed a REST API with FastAPI a Python web framework showing hands-on Python backend development",
+        "citations": [
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "start": 11,
+            "end": 12,
+            "raw": "【resume.pdf, P1-L11-L12】"
+          }
+        ],
+        "verdict": "post-rationalisation risk",
+        "score": 65,
+        "deductions": [
+          {
+            "reason": "Question focus not in the cited lines: python (link supplied by the model's prior)",
+            "points": 25
+          },
+          {
+            "reason": "1 cited line(s) are dead weight",
+            "points": 10
+          }
+        ],
+        "E_lex": 0.75,
+        "precision": 0.5,
+        "terms": [
+          {
+            "term": "rest",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": 5,
+            "first_own_source": "tool:select_evidence",
+            "first_evidence_step": 2,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "api",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": 5,
+            "first_own_source": "tool:select_evidence",
+            "first_evidence_step": 2,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "fastapi",
+            "support": "cited",
+            "in_question": false,
+            "first_own_step": 5,
+            "first_own_source": "tool:select_evidence",
+            "first_evidence_step": 2,
+            "asserted_before_seen": false
+          },
+          {
+            "term": "python",
+            "support": "elsewhere in sources",
+            "in_question": true,
+            "first_own_step": null,
+            "first_own_source": null,
+            "first_evidence_step": 1,
+            "asserted_before_seen": false
+          }
+        ],
+        "bridging_terms": [
+          "python"
+        ],
+        "timing_terms": [],
+        "cited_lines": [
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "line": 11,
+            "text": "• Developed a REST API using FastAPI and PostgreSQL to store data from learning management systems",
+            "status": "opened",
+            "selected": true,
+            "terms": [
+              "rest",
+              "api",
+              "fastapi"
+            ],
+            "unique_terms": [
+              "rest",
+              "api",
+              "fastapi"
+            ],
+            "role": "load-bearing"
+          },
+          {
+            "file": "resume.pdf",
+            "page": 1,
+            "line": 12,
+            "text": "• Developed a full-stack web application using Flask, React, PostgreSQL and Docker to analyze GitHub data",
+            "status": "opened",
+            "selected": true,
+            "terms": [],
+            "unique_terms": [],
+            "role": "dead weight"
+          }
+        ],
+        "causal": null
+      }
+    ],
+    "verdict_counts": {
+      "grounded": 2,
+      "post-rationalisation risk": 1
+    },
+    "trust_score": 83,
+    "trace_has_agent_text": false,
+    "notes": [
+      "This log does not record the agent's own reasoning or messages, so the timing signal only sees tool arguments (e.g. search queries). Use the instrumented agent4.py to log them.",
+      "Static signals are lexical. They show whether the cited text can carry the claim, not whether the agent causally relied on it; run the replay (--replay) for causal labels."
+    ]
+  }
+]
