@@ -15,6 +15,7 @@ Author: `vincent.BOOK-22RI0P106T.claude-demo-dataset`. Scope: `demo/` only.
 | `demo/test_demo.py` | Offline checks (below) |
 | `demo/RUNS.md` | Placeholder: run ids pending (see Open issues) |
 | `demo/README.md` | Describes the folder |
+| `demo/.gitattributes` | `*.pdf binary`, so Windows CRLF conversion never touches the PDF bytes |
 
 ## Why these choices
 

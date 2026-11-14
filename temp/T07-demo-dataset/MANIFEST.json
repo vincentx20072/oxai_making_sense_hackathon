@@ -10,7 +10,8 @@
     "demo/fake_agent.py": "demo/fake_agent.py",
     "demo/test_demo.py": "demo/test_demo.py",
     "demo/pdfs/known_fact.pdf": "demo/pdfs/known_fact.pdf",
-    "demo/pdfs/invented_fact.pdf": "demo/pdfs/invented_fact.pdf"
+    "demo/pdfs/invented_fact.pdf": "demo/pdfs/invented_fact.pdf",
+    "demo/.gitattributes": "demo/.gitattributes"
   },
   "tests": "python demo/test_demo.py"
 }
