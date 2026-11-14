@@ -127,14 +127,37 @@
         {% elif report.trust_score >= 45 %}Some claims lean on the model's own knowledge or on lines outside their citation. Check the flagged ones.
         {% else %}Several citations don't carry their claims. Treat this answer as unverified.{% endif %}
       </p>
-      <ul class="claim-list">
+      <ul class="claim-list" id="claim-list" data-run="{{ meta.id }}" data-max-calls="{{ max_replay_calls }}">
         {% for c in report.claims %}
         {% set vs = verdict_style.get(c.verdict, ('muted', c.verdict)) %}
-        <li><span class="score-pill {{ c.score|band }}">{{ c.score }}</span>
-          <span class="chip {{ vs[0] }}">{{ vs[1] }}</span>
-          <span class="cl-text">{{ c.text }}</span></li>
+        {% set est = estimates.get(c.id, 0) %}
+        {% set rstate = replays.get(c.id, 'none') %}
+        <li class="claim" data-claim="{{ c.id }}" data-state="{{ rstate }}">
+          <div class="claim-row">
+            <span class="score-pill {{ c.score|band }}">{{ c.score }}</span>
+            <span class="chip {{ vs[0] }}">{{ vs[1] }}</span>
+            <span class="cl-text">{{ c.text }}</span>
+          </div>
+          <div class="pull">
+            {% if est == 0 %}
+            <span class="muted small">Cites no lines, so there is no block to pull.</span>
+            {% elif est > max_replay_calls %}
+            <span class="muted small">Replay needs {{ est }} agent runs, over the cap of {{ max_replay_calls }}.</span>
+            {% else %}
+            <button type="button" class="btn small pull-btn" data-claim="{{ c.id }}" data-est="{{ est }}"
+              aria-controls="rp-{{ c.id }}"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="16" width="18" height="5" rx="1"/><rect x="3" y="3" width="18" height="5" rx="1"/><path d="M14 12h7" stroke-dasharray="2 2"/><rect x="3" y="9.5" width="8" height="5" rx="1"/></svg> <span class="pull-label">{% if rstate == 'done' %}Show replay{% else %}Pull the block{% endif %}</span></button>
+            <span class="pull-cost small" data-cost>
+              {% if rstate == 'done' %}Cached: 0 API calls
+              {% else %}Reruns the agent {{ est }}×: about {{ est }} API call{{ '' if est == 1 else 's' }} (cap {{ max_replay_calls }}){% endif %}
+            </span>
+            {% endif %}
+          </div>
+          <div class="replay-panel" id="rp-{{ c.id }}" aria-live="polite" hidden></div>
+        </li>
         {% endfor %}
       </ul>
+      <p class="muted small pull-note">“Pull the block” blanks the cited lines and plants a wrong value in them, then reruns the agent.
+        If the answer doesn't change, the citation was decoration. This tests behaviour, not the model's internal reasoning.</p>
       <form method="post" action="{{ url_for('analyse', run_id=meta.id) }}" class="inline"><button class="btn btn-ghost small" type="submit">{{ icon('repeat') }} Re-run analysis</button></form>
       <a class="btn btn-ghost small" href="{{ url_for('jenga_report', run_id=meta.id) }}" target="_blank" rel="noopener">Open report in new tab</a>
     </div>
@@ -233,5 +256,6 @@
 <script>
 {% if meta.status in ('queued','running') %}pollRun("{{ meta.id }}");{% endif %}
 initRunPage();
+{% if tab == 'trust' and report %}initReplay("{{ meta.id }}");{% endif %}
 </script>
 {% endblock %}
