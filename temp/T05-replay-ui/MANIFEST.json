@@ -1,0 +1,11 @@
+{
+  "task": "T05",
+  "author": "vincent.BOOK-22RI0P106T.claude-replay-ui",
+  "files": {
+    "app.py": "app.py",
+    "templates/run.html": "templates/run.html",
+    "static/app.js": "static/app.js",
+    "static/app.css": "static/app.css"
+  },
+  "tests": "python temp/T05-replay-ui/check_replay_ui.py . && python test_jenga.py"
+}
