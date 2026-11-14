@@ -50,6 +50,8 @@ app.config.update(
     SECRET_KEY=os.environ.get("JENGA_SECRET_KEY") or os.urandom(24),
     MAX_CONTENT_LENGTH=(MAX_TOTAL_MB + 1) * 1024 * 1024,
     DATA_DIR=Path(os.environ.get("JENGA_DATA_DIR", BASE / "data")),
+    # /results reads this EvalSummary; defaults to eval/results.json.
+    RESULTS_PATH=os.environ.get("JENGA_RESULTS_PATH") or None,
     # Replaced in tests with a fake client so no API calls are made.
     CLIENT_FACTORY=agent4.make_client,
 )
@@ -476,11 +478,52 @@ def replay_status(run_id, claim_id):
     return jsonify(json.loads(path.read_text(encoding="utf-8")))
 
 
+def _num(x):
+    """A float in [0, 1], or None for missing / non-numeric values."""
+    try:
+        return None if x is None else min(1.0, max(0.0, float(x)))
+    except (TypeError, ValueError):
+        return None
+
+
+def _rate_group(name, r):
+    r = r if isinstance(r, dict) else {}
+    k, n = r.get("k"), r.get("n")
+    rate = _num(r.get("rate"))
+    if rate is None and isinstance(k, int) and isinstance(n, int) and n > 0:
+        rate = k / n
+    return {"name": name, "k": k, "n": n, "rate": rate,
+            "lo": _num(r.get("lo")), "hi": _num(r.get("hi"))}
+
+
+def load_results(path):
+    """Read eval/results.json (EvalSummary). Returns (summary, groups, error).
+
+    Tolerates a missing file, invalid JSON and missing keys, so a partial or
+    in-progress real run still renders instead of a 500."""
+    path = Path(path)
+    if not path.exists():
+        return None, [], None
+    try:
+        summary = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(summary, dict):
+            raise ValueError("top level is not an object")
+    except (OSError, ValueError) as e:
+        return None, [], f"Could not read {path.name}: {e}"
+    by_family = summary.get("by_family") if isinstance(summary.get("by_family"), dict) else {}
+    groups = [_rate_group("All", summary.get("overall"))]
+    groups += [_rate_group(f, by_family[f]) for f in sorted(by_family)]
+    rows = summary.get("rows") if isinstance(summary.get("rows"), list) else []
+    summary["rows"] = [r for r in rows if isinstance(r, dict)]
+    return summary, groups, None
+
+
 @app.get("/results")
 def results():
-    path = BASE / "eval" / "results.json"
-    summary = json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
-    return render_template("results.html", summary=summary, active="results")
+    path = app.config.get("RESULTS_PATH") or BASE / "eval" / "results.json"
+    summary, groups, error = load_results(path)
+    return render_template("results.html", summary=summary, groups=groups,
+                           error=error, active="results")
 
 
 @app.errorhandler(413)

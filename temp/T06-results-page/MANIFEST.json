@@ -1,6 +1,0 @@
-{"task": "T06", "author": "vincent.BOOK-22RI0P106T.claude-results-page",
- "files": {"app.py": "app.py",
-           "templates/results.html": "templates/results.html",
-           "templates/base.html": "templates/base.html",
-           "static/app.css": "static/app.css"},
- "tests": "python temp/T06-results-page/check_results.py"}

@@ -19,6 +19,7 @@
     </a>
     <a class="btn btn-primary btn-block" href="{{ url_for('index') }}">{{ icon('plus') }} New question</a>
     <a class="side-link {% if active == 'import' %}is-active{% endif %}" href="{{ url_for('import_log') }}">{{ icon('upload') }} Analyse an existing log</a>
+    <a class="side-link {% if active == 'results' %}is-active{% endif %}" href="{{ url_for('results') }}">{{ icon('list') }} Pilot results</a>
     <div class="side-label">History</div>
     <nav class="history">
       {% for h in history %}
