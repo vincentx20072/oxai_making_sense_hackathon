@@ -1,0 +1,3 @@
+{"task": "T02", "author": "vincent.BOOK-22RI0P106T.claude-llm-client",
+ "files": {"llm.py": "llm.py", "agent4.py": "agent4.py"},
+ "tests": "python test_jenga.py"}
