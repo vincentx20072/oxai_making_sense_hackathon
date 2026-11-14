@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Results{% endblock %}
+{% block main %}
+{% macro pct(x) %}{{ "%.0f%%"|format(x * 100) if x is not none else "n/a" }}{% endmacro %}
+<header class="page-head">
+  <h1>Pilot results</h1>
+  <p class="muted">Evidence-insensitive supported-citation rate with 95% Wilson CI, by family,
+    and AUROC of the static trust score at predicting the replay label.
+    Static scores are lexical; replay labels are behavioural.</p>
+</header>
+
+{% if error %}
+<div class="flash flash-error">{{ error }}</div>
+{% endif %}
+
+{% if not summary %}
+<div class="card"><p class="muted">No results yet. Run <code>python eval/run_eval.py --dry-run</code>
+  to write <code>eval/results.json</code>.</p></div>
+{% else %}
+<div class="res-meta">
+  <span class="chip tag">Model <code>{{ summary.model or "unknown" }}</code></span>
+  <span class="chip tag">{{ summary.n if summary.n is not none else summary.rows|length }} questions</span>
+  {% if summary.dry_run %}<span class="chip warn">Dry run: synthetic outcomes</span>{% endif %}
+  <span class="chip tag">AUROC {{ "%.2f"|format(summary.auroc) if summary.auroc is number else "n/a" }}</span>
+</div>
+
+<section class="card res-card">
+  <h2 class="card-title">Evidence-insensitive rate, 95% CI</h2>
+  <div class="ci-chart" role="img" aria-label="Bar chart of evidence-insensitive rate with 95% confidence intervals per group">
+    {% for g in groups %}
+    <div class="ci-row">
+      <span class="ci-name">{{ g.name }}</span>
+      <div class="ci-track">
+        {% if g.rate is not none %}
+        <div class="ci-bar{% if loop.first %} ci-bar-all{% endif %}" style="width:{{ '%.2f'|format(g.rate * 100) }}%"></div>
+        {% endif %}
+        {% if g.lo is not none and g.hi is not none %}
+        <div class="ci-whisker" style="left:{{ '%.2f'|format(g.lo * 100) }}%;width:{{ '%.2f'|format((g.hi - g.lo) * 100) }}%"
+             title="95% CI {{ pct(g.lo) }} – {{ pct(g.hi) }}"></div>
+        {% endif %}
+      </div>
+      <span class="ci-val">{{ pct(g.rate) }}</span>
+    </div>
+    {% endfor %}
+    <div class="ci-row ci-axis" aria-hidden="true">
+      <span></span>
+      <div class="ci-ticks"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
+      <span></span>
+    </div>
+  </div>
+
+  <div class="tbl-wrap">
+  <table class="tbl">
+    <thead><tr><th>Group</th><th class="num">k / n</th><th class="num">Rate</th><th class="num">95% CI</th></tr></thead>
+    <tbody>
+      {% for g in groups %}
+      <tr><td>{{ g.name }}</td>
+        <td class="num">{{ g.k if g.k is not none else "?" }} / {{ g.n if g.n is not none else "?" }}</td>
+        <td class="num">{{ pct(g.rate) }}</td>
+        <td class="num">{{ pct(g.lo) }} – {{ pct(g.hi) }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+{% if summary.rows %}
+<section class="card res-card">
+  <h2 class="card-title">Per question</h2>
+  <div class="tbl-wrap">
+  <table class="tbl">
+    <thead><tr><th>ID</th><th>Family</th><th class="num">Static score</th><th>Original correct</th>
+      <th>Plant</th><th>Remove all</th><th>Evidence-insensitive</th><th>Replay label</th></tr></thead>
+    <tbody>
+      {% for r in summary.rows %}
+      <tr><td><code>{{ r.id }}</code></td><td>{{ r.family }}</td>
+        <td class="num">{{ r.static_score if r.static_score is not none else "n/a" }}</td>
+        <td>{{ "yes" if r.original_correct else "no" }}</td>
+        <td>{{ r.plant_outcome }}</td><td>{{ r.remove_all_outcome }}</td>
+        <td>{% if r.evidence_insensitive %}<span class="chip bad">yes</span>{% else %}<span class="chip tag">no</span>{% endif %}</td>
+        <td><span class="chip {{ {'faithful': 'ok', 'post-rationalised': 'bad'}.get(r.label, 'muted') }}">{{ r.label or "n/a" }}</span></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}
