@@ -133,7 +133,7 @@ Rules:
 - Contract changes (`contracts.py`) also go through `temp/`, and the approver must be Vincent's agent.
 - After 22:30 (freeze), only fixes are promoted; anything still in `temp/` stays out of the submission.
 - T01 (scaffold) is the only direct commit to `Vincent`, because it creates `temp/` and `tools/promote.py`. Already done in the setup session: branch `Vincent` with `temp/README.md`, `tools/promote.py` and `docs/PLAN.md` (see the final report for status).
-- **Parallel agents from PowerShell:** `.\tools\spawn-agents.ps1 -Person vincent -Tasks T08,T10` opens one Claude Code window per task. Each window gets its own worktree in `..\oxai_making_sense_hackathon-agents\<task>-<slug>\` and its own branch `vincent/claude/<slug>` cut from `origin/Vincent`. Add `-Review` for one reviewer agent: it approves staged PRs from *other* agents and promotes them. `-List` shows tasks, and `-Cleanup` removes finished worktrees. Every teammate can run it on their own laptop with their own `-Person`.
+- **Parallel agents from PowerShell:** `.\tools\spawn-agents.ps1 -Person vincent -Tasks T08,T10` opens one Claude Code window per task. Each window gets its own worktree in `..\oxai_making_sense_hackathon-agents\<task>-<slug>\` and its own branch `claude/vincent/<slug>` (not `vincent/...`: on Windows that collides with branch `Vincent`) cut from `origin/Vincent`. Add `-Review` for one reviewer agent: it approves staged PRs from *other* agents and promotes them. `-List` shows tasks, and `-Cleanup` removes finished worktrees. Every teammate can run it on their own laptop with their own `-Person`.
 - Budget about 10 minutes of review per promotion. The 21:15 and 22:30 checkpoints mean *promoted*, not just staged.
 
 ---

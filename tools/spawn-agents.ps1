@@ -12,7 +12,7 @@ Run from the repo root (on Windows PowerShell 5+ or pwsh 7):
   .\tools\spawn-agents.ps1 -List                                   # show tasks
   .\tools\spawn-agents.ps1 -Cleanup                                # remove worktrees with no changes
 
-Each agent gets ..\<repo>-agents\<task>-<slug>\ on branch <person>/claude/<slug>,
+Each agent gets ..\<repo>-agents\<task>-<slug>\ on branch claude/<person>/<slug>,
 cut from origin/Vincent, plus a .agent-prompt.md (git-excluded). A new window
 (Windows Terminal tab when `wt` exists, else a PowerShell window) runs:
   claude --permission-mode <Mode> "Read .agent-prompt.md and follow it exactly."
@@ -99,7 +99,7 @@ Rules for every agent on this team (Jenga: Cited but Not Used?, OxAI Making Sens
 "@
 
 if ($Review) {
-  $dir = New-AgentWorktree "review-$Person" "$Person/claude/review"
+  $dir = New-AgentWorktree "review-$Person" "claude/$Person/review"
   @"
 You are the REVIEWER agent (identity $Person.$env:COMPUTERNAME.claude-review). You approve or reject staged work.
 
@@ -126,7 +126,7 @@ foreach ($id in $Tasks) {
   $t = $cfg.tasks | Where-Object { $_.id -eq $id }
   if (-not $t) { Write-Warning "unknown task $id (see -List)"; continue }
   $name = "$($t.id)-$($t.slug)"
-  $branch = "$Person/claude/$($t.slug)"
+  $branch = "claude/$Person/$($t.slug)"
   $dir = New-AgentWorktree $name $branch
   @"
 You are an autonomous build agent. Identity: $Person.$env:COMPUTERNAME.claude-$($t.slug). Branch: $branch (already checked out).
