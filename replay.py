@@ -231,3 +231,59 @@ def replay_report(report, files_dir=None, plant_overrides=None, samples=1,
         f"Causal replay ran {samples} sample(s) per condition with the source PDFs "
         f"in {rp.files_dir.name}/."]
     return report
+
+
+# ============================================================
+# Per-claim replay for the web app (T01 stub; real version in T03/T04)
+# ============================================================
+
+import json  # noqa: E402
+import os  # noqa: E402
+
+DEFAULT_MAX_CALLS = 12
+
+
+def max_calls_default():
+    try:
+        return int(os.environ.get("JENGA_REPLAY_MAX_CALLS") or DEFAULT_MAX_CALLS)
+    except ValueError:
+        return DEFAULT_MAX_CALLS
+
+
+def estimate_calls(report, claim_id, modes=("remove_all", "plant"), samples=1):
+    """Number of agent runs replay_claim would make for this claim."""
+    claim = next((c for c in report.get("claims", []) if c["id"] == claim_id), None)
+    if claim is None or not claim.get("cited_lines"):
+        return 0
+    n = 0
+    for m in modes:
+        if m == "remove_each":
+            n += len(spans(claim))
+        elif m in ("remove_all", "plant"):
+            n += 1
+    return n * max(1, samples)
+
+
+def perturb(term, magnitude="small"):
+    """Plausible wrong value for term. Stub: delegates to substitute_for (T04)."""
+    return substitute_for(term, {})
+
+
+def replay_claim(run_id, claim_id, *, modes=("remove_all", "plant"), plant_override=None,
+                 magnitude="small", samples=1, max_calls=None, client=None, runs_root=None):
+    """Replay one claim. T01 stub: makes no model calls and returns 'unclear'."""
+    calls_estimated, before = 0, ""
+    root = Path(runs_root) if runs_root else agent4.BASE_DIR / "data" / "runs"
+    rp = root / run_id / "report.json"
+    if rp.is_file():
+        report = json.loads(rp.read_text(encoding="utf-8"))
+        calls_estimated = estimate_calls(report, claim_id, modes, samples)
+        before = report.get("answer", "")
+    return {
+        "run_id": run_id, "claim_id": claim_id, "status": "done", "cached": False,
+        "calls_used": 0, "calls_estimated": calls_estimated,
+        "before_answer": before, "after_answers": {},
+        "causal": {"label": "unclear", "E": None, "F": None, "removals": [],
+                   "remove_all_outcomes": [], "plant": None, "samples": samples},
+        "error": None,
+    }

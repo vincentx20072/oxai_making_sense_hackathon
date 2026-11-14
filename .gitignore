@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+.env.*
+runs/
+replays.log
+# Runs are local; only the demo runs listed in demo/RUNS.md are committed.
+# Add each demo run id below as: !data/runs/<id>/
+data/runs/*
+!data/runs/81518514ddfd/

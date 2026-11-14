@@ -69,7 +69,7 @@ def _run(policy, tmp):
 
 
 def test_original_log_parses():
-    reps = jenga.analyse_log_text((HERE / "samples" / "agent4.log").read_text())
+    reps = jenga.analyse_log_text((HERE / "samples" / "agent4.log").read_text(encoding="utf-8"))
     assert len(reps) == 1
     claims = reps[0]["claims"]
     assert len(claims) == 3

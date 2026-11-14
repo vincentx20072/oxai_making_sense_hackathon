@@ -37,6 +37,7 @@ from werkzeug.utils import secure_filename
 
 import agent4
 import jenga
+import replay
 import webview
 
 BASE = Path(__file__).parent
@@ -409,6 +410,77 @@ def api_analyse():
     if not reports:
         return jsonify({"error": "no completed runs found"}), 400
     return jsonify(reports)
+
+
+# ============================================================
+# Per-claim replay ("Pull the block") and pilot results
+# ============================================================
+
+CLAIM_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
+
+
+def replay_path(run_id, claim_id):
+    return run_path(run_id) / "replay" / f"{claim_id}.json"
+
+
+def _write_json(path, data):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(path)
+
+
+def run_replay_job(run_id, claim_id, modes, plant_override):
+    path = runs_dir() / run_id / "replay" / f"{claim_id}.json"
+    try:
+        result = replay.replay_claim(run_id, claim_id, modes=modes,
+                                     plant_override=plant_override, runs_root=runs_dir())
+    except Exception as e:
+        result = {"run_id": run_id, "claim_id": claim_id, "status": "error",
+                  "error": f"{type(e).__name__}: {e}"[:800]}
+    _write_json(path, result)
+
+
+@app.post("/runs/<run_id>/replay")
+def start_replay(run_id):
+    d = run_path(run_id)
+    body = request.get_json(silent=True) or {}
+    claim_id = str(body.get("claim_id") or "")
+    if not CLAIM_ID_RE.match(claim_id):
+        return jsonify({"error": "claim_id is required"}), 400
+    if not (d / "report.json").exists():
+        return jsonify({"error": "run Jenga on this run first"}), 409
+    modes = [m for m in (body.get("modes") or ["remove_all", "plant"])
+             if m in ("remove_all", "remove_each", "plant")] or ["remove_all", "plant"]
+    plant_override = body.get("plant_override") or None
+    path = replay_path(run_id, claim_id)
+    if path.exists():
+        cached = json.loads(path.read_text(encoding="utf-8"))
+        if cached.get("status") == "done":
+            return jsonify({**cached, "cached": True, "calls_used": 0})
+    report = json.loads((d / "report.json").read_text(encoding="utf-8"))
+    pending = {"run_id": run_id, "claim_id": claim_id, "status": "running",
+               "calls_estimated": replay.estimate_calls(report, claim_id, modes)}
+    _write_json(path, pending)
+    _executor.submit(run_replay_job, run_id, claim_id, modes, plant_override)
+    return jsonify(pending), 202
+
+
+@app.get("/api/runs/<run_id>/replay/<claim_id>")
+def replay_status(run_id, claim_id):
+    if not CLAIM_ID_RE.match(claim_id):
+        abort(404)
+    path = replay_path(run_id, claim_id)
+    if not path.exists():
+        return jsonify({"run_id": run_id, "claim_id": claim_id, "status": "none"}), 404
+    return jsonify(json.loads(path.read_text(encoding="utf-8")))
+
+
+@app.get("/results")
+def results():
+    path = BASE / "eval" / "results.json"
+    summary = json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+    return render_template("results.html", summary=summary, active="results")
 
 
 @app.errorhandler(413)

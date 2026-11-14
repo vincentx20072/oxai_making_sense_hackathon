@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Results{% endblock %}
+{% block main %}
+<header class="page-head">
+  <h1>Pilot results</h1>
+  <p class="muted">Evidence-insensitive supported-citation rate with 95% Wilson CI, by family,
+    and AUROC of the static trust score at predicting the replay label.
+    Static scores are lexical; replay labels are behavioural.</p>
+</header>
+{% if not summary %}
+<div class="card"><p class="muted">No results yet. Run <code>python eval/run_eval.py --dry-run</code>
+  to write <code>eval/results.json</code>.</p></div>
+{% else %}
+{% macro pct(x) %}{{ "%.0f%%"|format(x * 100) if x is not none else "n/a" }}{% endmacro %}
+<div class="card">
+  <p>Model <code>{{ summary.model }}</code> · {{ summary.n }} questions
+    {% if summary.dry_run %}· <strong>dry run (synthetic outcomes)</strong>{% endif %}</p>
+  <table>
+    <thead><tr><th>Group</th><th>k / n</th><th>Rate</th><th>95% CI</th></tr></thead>
+    <tbody>
+      {% for name, r in [("All", summary.overall)] + (summary.by_family|dictsort) %}
+      <tr><td>{{ name }}</td><td>{{ r.k }} / {{ r.n }}</td><td>{{ pct(r.rate) }}</td>
+        <td>{{ pct(r.lo) }} – {{ pct(r.hi) }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p>AUROC (static score vs replay label):
+    {{ "%.2f"|format(summary.auroc) if summary.auroc is not none else "n/a" }}</p>
+</div>
+{% endif %}
+{% endblock %}
