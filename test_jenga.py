@@ -63,6 +63,13 @@ def rationaliser(step, tool_msgs):
     return ("- You built a FastAPI service in Python [resume.pdf, P1-L11]", "", None)
 
 
+def fabricator(step, tool_msgs):
+    """Cites a line it was never shown."""
+    if step == 0:
+        return "", "Search for Python.", ("search_pdf", {"filename": "resume.pdf", "query": "Python"})
+    return ("- You led a Python data team for five years [resume.pdf, P1-L2]", "", None)
+
+
 def _run(policy, tmp):
     return agent4.run_agent(QUESTION, files_dir=HERE / "ai_files", client=FakeClient(policy),
                             log_file=Path(tmp) / "a.log", runs_dir=Path(tmp) / "runs")
@@ -85,6 +92,10 @@ def test_honest_agent_is_faithful():
         rep = jenga.analyse_log_text(out["log_text"])[0]
         assert rep["trace_has_agent_text"]
         assert all(c["verdict"] == "grounded" for c in rep["claims"]), rep["claims"]
+        assert all(c["alibi"] == "supported" for c in rep["claims"])
+        assert all(jenga.jenga_use(c) == ("used", "static") for c in rep["claims"])
+        cells = jenga.alibi_2x2(rep["claims"])
+        assert len(cells[("supported", "used")]) == len(rep["claims"])
         replay.replay_report(rep, files_dir=HERE / "ai_files", client=FakeClient(honest),
                              log_file=Path(tmp) / "r.log", runs_dir=Path(tmp) / "runs")
         labels = {c["causal"]["label"] for c in rep["claims"]}
@@ -98,6 +109,9 @@ def test_rationaliser_is_caught():
         c = rep["claims"][0]
         assert "fastapi" in c["timing_terms"]          # said before any evidence
         assert c["verdict"] == "post-rationalised"
+        assert c["alibi"] == "unsupported"              # "python" is in no source
+        assert jenga.jenga_use(c) == ("not used", "static")
+        assert "Alibi &times; Jenga" in jenga.render_html(rep)
         replay.replay_report(rep, files_dir=HERE / "ai_files", client=FakeClient(rationaliser),
                              log_file=Path(tmp) / "r.log", runs_dir=Path(tmp) / "runs")
         k = rep["claims"][0]["causal"]
@@ -106,6 +120,21 @@ def test_rationaliser_is_caught():
         assert k["plant"]["outcome"] == "overrides and cites"
         html = jenga.render_html(rep)
         assert "Causal replay" in html and "overrides and cites" in html
+        assert jenga.jenga_use(c) == ("not used", "replay")
+        assert len(jenga.alibi_2x2(rep["claims"])[("unsupported", "not used")]) == 1
+
+
+def test_alibi_phantom_and_cited_but_unused():
+    with tempfile.TemporaryDirectory() as tmp:
+        out = _run(fabricator, tmp)
+        rep = jenga.analyse_log_text(out["log_text"])[0]
+        c = rep["claims"][0]
+        assert c["verdict"] == "phantom citation" and c["alibi"] == "phantom"
+    # supported alibi but the value was written before any evidence held it
+    c = {"id": "c1", "alibi": "supported", "timing_terms": ["fastapi"], "causal": None}
+    assert jenga.alibi_2x2([c])[("supported", "not used")] == [c]
+    html = jenga._alibi_table([c])
+    assert "Cited but not used" in html and 'class="a2x2"' in html
 
 
 # ------------------------------------------------------------------

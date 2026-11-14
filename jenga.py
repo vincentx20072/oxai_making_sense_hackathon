@@ -473,6 +473,18 @@ def analyse_claim(claim, run, seen, q_terms, steps, subject=frozenset()):
     else:
         verdict = "grounded"
 
+    # ---- Alibi: was it there? (presence only, ignores timing) -------------
+    # phantom:     a cited line was never shown to the agent
+    # supported:   every cited line was shown and the citation carries the claim
+    #              (no bridging, no prior-only terms, effective share >= 0.5)
+    # unsupported: no citation, or the cited lines don't carry the claim
+    if phantom:
+        alibi = "phantom"
+    elif claim["citations"] and not (bridging or prior or (e_eff is not None and e_eff < 0.5)):
+        alibi = "supported"
+    else:
+        alibi = "unsupported"
+
     return {
         "id": claim["id"], "text": claim["text"], "citations": claim["citations"],
         "verdict": verdict, "score": score,
@@ -480,7 +492,7 @@ def analyse_claim(claim, run, seen, q_terms, steps, subject=frozenset()):
         "E_lex": e_lex, "precision": precision, "terms": term_rows,
         "bridging_terms": bridging, "timing_terms": timing,
         "cited_lines": [{k: v for k, v in x.items() if k != "key"} for x in cited],
-        "causal": None,
+        "causal": None, "alibi": alibi,
     }
 
 
@@ -592,6 +604,9 @@ ul.ded{margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--sub)}
 .notes{font-size:13px;color:var(--sub)}
 details summary{cursor:pointer;color:var(--sub);font-size:13px;margin-top:10px}
 pre{white-space:pre-wrap;font-size:12.5px;background:var(--bg);padding:10px;border-radius:8px}
+table.a2x2{width:100%;border-collapse:collapse;font-size:13.5px}
+.a2x2 th,.a2x2 td{border:1px solid var(--line);padding:10px;text-align:left;vertical-align:top}
+.a2x2 th{font-weight:600;width:28%}.a2x2 td .n{font-size:22px;font-weight:700;margin:4px 0 0}
 .causal{margin-top:10px;border-top:1px dashed var(--line);padding-top:10px;font-size:13px}
 """
 
@@ -738,6 +753,75 @@ def _causal_html(c):
     return f'<div class="causal"><b>Causal replay</b>{"".join(rows)}</div>'
 
 
+ALIBI_STYLE = {"supported": ("ok", "Alibi: supported"),
+               "unsupported": ("warn", "Alibi: unsupported"),
+               "phantom": ("bad", "Alibi: phantom")}
+
+
+def jenga_use(c):
+    """Jenga axis of the 2x2: ("used" | "not used", source).  The replay label
+    decides when it is conclusive; otherwise the static timing signal does."""
+    lab = (c.get("causal") or {}).get("label")
+    if lab == "faithful":
+        return "used", "replay"
+    if lab == "post-rationalised":
+        return "not used", "replay"
+    return ("not used" if c.get("timing_terms") else "used"), "static"
+
+
+QUADRANTS = {
+    ("supported", "used"): ("ok", "Faithful citation"),
+    ("supported", "not used"): ("bad", "Cited but not used"),
+    ("unsupported", "used"): ("warn", "Used but mis-cited"),
+    ("unsupported", "not used"): ("bad", "Unsupported and unused"),
+}
+
+
+def alibi_2x2(claims):
+    """Count claims into Alibi (supported / not) x Jenga (used / not used).
+    Phantom alibis count on the 'unsupported' row (and are tallied separately)."""
+    cells = {k: [] for k in QUADRANTS}
+    for c in claims:
+        a = c.get("alibi", "unsupported")
+        cells[("supported" if a == "supported" else "unsupported", jenga_use(c)[0])].append(c)
+    return cells
+
+
+def _alibi_table(claims):
+    if not claims:
+        return ""
+    cells = alibi_2x2(claims)
+    n_phantom = sum(1 for c in claims if c.get("alibi") == "phantom")
+    n_replay = sum(1 for c in claims if jenga_use(c)[1] == "replay")
+
+    def td(row, col):
+        cls, name = QUADRANTS[(row, col)]
+        ids = ", ".join(c["id"] for c in cells[(row, col)]) or "&ndash;"
+        return (f'<td><span class="chip {cls}">{esc(name)}</span>'
+                f'<div class="n">{len(cells[(row, col)])}</div>'
+                f'<div class="sub">{esc(ids) if cells[(row, col)] else ids}</div></td>')
+    src = ("replay label where available, else static timing" if n_replay
+           else "static timing signal (no replay run)")
+    return f"""<h2>Alibi &times; Jenga</h2>
+<div class="card"><table class="a2x2">
+<tr><th></th><th>Jenga: used<div class="sub">evidence came first</div></th>
+<th>Jenga: not used<div class="sub">answer came first</div></th></tr>
+<tr><th>Alibi: supported<div class="sub">cited lines were shown and carry the claim</div></th>
+{td("supported", "used")}{td("supported", "not used")}</tr>
+<tr><th>Alibi: unsupported<div class="sub">no citation, weak citation{f", or phantom ({n_phantom})" if n_phantom else ", or phantom"}</div></th>
+{td("unsupported", "used")}{td("unsupported", "not used")}</tr>
+</table>
+<div class="sub" style="margin-top:8px">Alibi asks "was it there?"; Jenga asks "did it use it?".
+Jenga axis from the {esc(src)}. Both are proxies: static signals are lexical.</div></div>"""
+
+
+def _alibi_chip(c):
+    if "alibi" not in c:
+        return ""
+    cls, name = ALIBI_STYLE[c["alibi"]]
+    return f'<span class="chip {cls}">{esc(name)}</span>'
+
+
 def _claim_card(c):
     cls, name = VERDICT_STYLE.get(c["verdict"], ("muted", c["verdict"]))
     if c.get("causal") and c["causal"].get("label"):
@@ -759,6 +843,7 @@ def _claim_card(c):
   <div>{_tower(c)}</div>
   <div>
     <div class="chips"><span class="chip {cls}">{esc(name)}</span>
+      {_alibi_chip(c)}
       <span class="chip muted">score {c['score']}</span>
       <span class="chip muted">{esc(cites or 'no citation')}</span></div>
     <div class="ctext">{esc(c['text'])}</div>
@@ -807,6 +892,7 @@ def _run_section(rep, n_runs, embedded=False):
   <span>⏱ written by the agent before any evidence contained it</span>
 </div>
 {''.join(_claim_card(c) for c in rep['claims'])}
+{_alibi_table(rep['claims'])}
 {final}
 <ul class="notes">{notes}</ul>
 """
@@ -847,6 +933,7 @@ def write_outputs(reports, out_dir):
                                      "values": [t["term"] for t in c["terms"]]},
                                     ensure_ascii=False) + "\n")
                 fj.write(json.dumps({"claim_id": cid, "verdict": c["verdict"],
+                                     "alibi": c.get("alibi"),
                                      "score": c["score"], "E_lex": c["E_lex"],
                                      "precision": c["precision"],
                                      "timing_flag": bool(c["timing_terms"]),
@@ -874,7 +961,8 @@ def main(argv=None):
     for r in reports:
         print(f"\nRun {r['run_id']}  trust {r['trust_score']}/100  — {r['question']}")
         for c in r["claims"]:
-            print(f"  [{c['score']:>3}] {c['verdict']:<26} {c['text'][:70]}")
+            print(f"  [{c['score']:>3}] {c['verdict']:<26} {c.get('alibi', ''):<12} "
+                  f"{c['text'][:60]}")
             for d in c["deductions"]:
                 print(f"         -{d['points']}: {d['reason']}")
     print(f"\nInfographic: {path}")
