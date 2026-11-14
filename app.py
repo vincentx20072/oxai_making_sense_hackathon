@@ -10,8 +10,11 @@ Flow
      runs in the background; the page shows its steps live.
   2. Read the answer.  Citations are chips linking to the cited PDF page.
   3. Run Jenga (automatically or with a button).  This is a static analysis
-     of the log: it makes NO extra model calls.  Causal replays are
-     deliberately not available here because they cost many API calls.
+     of the log: it makes NO extra model calls.
+  3b. "Pull the block" on one claim reruns the agent with the cited lines
+     blanked and with the claim's value planted (replay.replay_claim).  It is
+     opt-in, per claim, capped at JENGA_REPLAY_MAX_CALLS agent runs, and cached
+     under data/runs/<id>/replay/, so a second click costs nothing.
   4. Inspect the agent's log as a formatted timeline, or raw.
 
 Each run is stored under data/runs/<id>/ (PDFs, agent.log, report.json,
@@ -314,8 +317,13 @@ def view_run(run_id):
     answer_html = (webview.render_answer(run["answer"], run, run_id, linkable)
                    if run and run["answer"] else "")
     n_calls = sum(1 for t in turns for i in t["items"] if i["type"] in ("call", "select"))
+    replays, estimates = {}, {}
+    if report and tab == "trust":
+        estimates = replay_estimates(report)
+        replays = {c["id"]: replay_state(run_id, c["id"])["status"] for c in report["claims"]}
     return render_template(
         "run.html", meta=meta, run=run, turns=turns, report=report, tab=tab,
+        replays=replays, estimates=estimates, max_replay_calls=replay.max_calls_default(),
         answer_html=answer_html, log_text=log_text, n_calls=n_calls,
         steps=webview.progress(run), thought=webview.last_thought(run), active=run_id)
 
@@ -417,10 +425,24 @@ def api_analyse():
 # ============================================================
 
 CLAIM_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
+REPLAY_MODES = ("remove_all", "remove_each", "plant")
+DEFAULT_REPLAY_MODES = ["remove_all", "plant"]
+_replay_lock = threading.RLock()  # guards _replay_active and the replay files
+_replay_active = set()          # (run_id, claim_id) jobs running in this process
+
+# Disk layout under data/runs/<id>/replay/:
+#   <claim_id>.json      the finished ReplayResult (the cache; only status "done")
+#   <claim_id>.job.json  progress/errors of the latest job (running | error)
+# Keeping job state out of the cache file means replay_claim's own cache never
+# sees a half-written "running" record, and a failed job never poisons the cache.
 
 
 def replay_path(run_id, claim_id):
     return run_path(run_id) / "replay" / f"{claim_id}.json"
+
+
+def replay_job_path(run_id, claim_id):
+    return run_path(run_id) / "replay" / f"{claim_id}.job.json"
 
 
 def _write_json(path, data):
@@ -430,38 +452,102 @@ def _write_json(path, data):
     tmp.replace(path)
 
 
+def _read_json(path):
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def cached_replay(run_id, claim_id):
+    """The finished ReplayResult for this claim, or None."""
+    data = _read_json(replay_path(run_id, claim_id))
+    return data if data and data.get("status") == "done" else None
+
+
+def replay_state(run_id, claim_id):
+    """Current state for the UI: cached result, live job, or {'status': 'none'}."""
+    with _replay_lock:  # a job finishing mid-read could look "interrupted"
+        done = cached_replay(run_id, claim_id)
+        if done:
+            return {**done, "cached": True}
+        job = _read_json(replay_job_path(run_id, claim_id))
+        if job:
+            if job.get("status") == "running" and (run_id, claim_id) not in _replay_active:
+                # The server restarted mid-replay: the job is gone, let the user retry.
+                job = {**job, "status": "error",
+                       "error": "The replay was interrupted (server restarted). Try again."}
+            return job
+        return {"run_id": run_id, "claim_id": claim_id, "status": "none"}
+
+
+def replay_estimates(report):
+    """{claim_id: agent runs a default replay would make} for the Trust tab."""
+    return {c["id"]: replay.estimate_calls(report, c["id"], DEFAULT_REPLAY_MODES)
+            for c in report.get("claims", [])}
+
+
 def run_replay_job(run_id, claim_id, modes, plant_override):
-    path = runs_dir() / run_id / "replay" / f"{claim_id}.json"
+    d = runs_dir() / run_id / "replay"
+    job_path = d / f"{claim_id}.job.json"
+    result, error = None, None
     try:
         result = replay.replay_claim(run_id, claim_id, modes=modes,
                                      plant_override=plant_override, runs_root=runs_dir())
+        if result.get("status") != "done":
+            raise RuntimeError(result.get("error") or f"replay ended with status {result.get('status')}")
     except Exception as e:
-        result = {"run_id": run_id, "claim_id": claim_id, "status": "error",
-                  "error": f"{type(e).__name__}: {e}"[:800]}
-    _write_json(path, result)
+        error = f"{type(e).__name__}: {e}"[:800]
+    with _replay_lock:
+        try:
+            if error is None:
+                _write_json(d / f"{claim_id}.json", {**result, "cached": False})
+                job_path.unlink(missing_ok=True)
+            else:
+                _write_json(job_path, {"run_id": run_id, "claim_id": claim_id,
+                                       "status": "error", "error": error})
+        finally:
+            _replay_active.discard((run_id, claim_id))
 
 
 @app.post("/runs/<run_id>/replay")
 def start_replay(run_id):
+    """Pull the block: start (or reuse) a capped, cached replay of one claim."""
     d = run_path(run_id)
     body = request.get_json(silent=True) or {}
     claim_id = str(body.get("claim_id") or "")
     if not CLAIM_ID_RE.match(claim_id):
         return jsonify({"error": "claim_id is required"}), 400
     if not (d / "report.json").exists():
-        return jsonify({"error": "run Jenga on this run first"}), 409
-    modes = [m for m in (body.get("modes") or ["remove_all", "plant"])
-             if m in ("remove_all", "remove_each", "plant")] or ["remove_all", "plant"]
-    plant_override = body.get("plant_override") or None
-    path = replay_path(run_id, claim_id)
-    if path.exists():
-        cached = json.loads(path.read_text(encoding="utf-8"))
-        if cached.get("status") == "done":
-            return jsonify({**cached, "cached": True, "calls_used": 0})
+        return jsonify({"error": "Run the Jenga analysis on this run first."}), 409
     report = json.loads((d / "report.json").read_text(encoding="utf-8"))
-    pending = {"run_id": run_id, "claim_id": claim_id, "status": "running",
-               "calls_estimated": replay.estimate_calls(report, claim_id, modes)}
-    _write_json(path, pending)
+    if not any(c["id"] == claim_id for c in report.get("claims", [])):
+        return jsonify({"error": f"No claim {claim_id} in this report."}), 404
+
+    cached = cached_replay(run_id, claim_id)
+    if cached:  # served from disk: no API calls
+        return jsonify({**cached, "cached": True, "calls_used": 0})
+
+    modes = [m for m in (body.get("modes") or DEFAULT_REPLAY_MODES)
+             if m in REPLAY_MODES] or list(DEFAULT_REPLAY_MODES)
+    plant_override = str(body.get("plant_override") or "").strip()[:200] or None
+    estimate = replay.estimate_calls(report, claim_id, modes)
+    cap = replay.max_calls_default()
+    if estimate == 0:
+        return jsonify({"error": "This claim cites no lines, so there is no block to pull."}), 400
+    if estimate > cap:
+        return jsonify({"error": f"This replay needs {estimate} agent runs; the cap is {cap} "
+                                 "(JENGA_REPLAY_MAX_CALLS)."}), 400
+
+    with _replay_lock:
+        key = (run_id, claim_id)
+        if key in _replay_active:  # already running: don't start a second job
+            return jsonify(replay_state(run_id, claim_id)), 202
+        _replay_active.add(key)
+        pending = {"run_id": run_id, "claim_id": claim_id, "status": "running",
+                   "calls_estimated": estimate, "max_calls": cap, "modes": modes,
+                   "started": now_iso()}
+        _write_json(replay_job_path(run_id, claim_id), pending)
     _executor.submit(run_replay_job, run_id, claim_id, modes, plant_override)
     return jsonify(pending), 202
 
@@ -470,10 +556,9 @@ def start_replay(run_id):
 def replay_status(run_id, claim_id):
     if not CLAIM_ID_RE.match(claim_id):
         abort(404)
-    path = replay_path(run_id, claim_id)
-    if not path.exists():
-        return jsonify({"run_id": run_id, "claim_id": claim_id, "status": "none"}), 404
-    return jsonify(json.loads(path.read_text(encoding="utf-8")))
+    run_path(run_id)
+    state = replay_state(run_id, claim_id)
+    return jsonify(state), (404 if state["status"] == "none" else 200)
 
 
 @app.get("/results")

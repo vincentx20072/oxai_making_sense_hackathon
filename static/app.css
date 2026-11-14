@@ -176,6 +176,37 @@ form.inline{display:inline}
 .cta{text-align:center;padding:40px 24px;max-width:680px;margin:0 auto;color:var(--acc)}
 .cta h2{color:var(--ink);margin-top:10px}.cta p{margin:0 auto 18px;max-width:520px}
 
+/* ---------- pull the block (per-claim replay) ---------- */
+.claim-list li.claim{display:block;padding:10px 0;border-top:1px solid var(--line)}
+.claim-list li.claim:first-child{border-top:0;padding-top:0}
+.claim-row{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.pull{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin:8px 0 0}
+.pull-btn.is-busy{opacity:.7;cursor:progress}
+.pull-btn.is-busy .ic{animation:spin .8s linear infinite}
+.pull-cost{color:var(--sub)}
+.claim[data-state="done"] .pull-cost{color:var(--ok)}
+.pull-note{margin:0 0 14px}
+.replay-panel{margin-top:10px;border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--soft)}
+.claim[data-state="done"] .replay-panel{background:var(--card)}
+.rp-busy{display:flex;gap:12px;align-items:center;font-size:14px;color:var(--sub)}
+.rp-error{color:var(--bad);font-size:14px}
+.rp-head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px}
+.rp-label{font-weight:700;font-size:14px;border-radius:8px;padding:3px 10px}
+.rp-label.muted{color:var(--muted);background:var(--muted-bg)}
+.rp-why{flex:1 1 260px;font-size:13.5px;color:var(--sub)}
+.rp-facts{list-style:none;margin:0 0 12px;padding:0;display:flex;flex-direction:column;gap:5px;font-size:13.5px}
+.rp-facts del{color:var(--bad);text-decoration-thickness:2px}
+.rp-facts ins{color:var(--ok);text-decoration:none;font-weight:600}
+.rp-answers{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.rp-col{border:1px solid var(--line);border-radius:10px;background:var(--card);min-width:0;display:flex;flex-direction:column}
+.rp-col.rp-before{background:var(--soft)}
+.rp-col-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--sub);padding:8px 11px 0}
+.rp-text{font-size:13px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;padding:6px 11px 10px;max-height:280px;overflow:auto}
+.rp-text mark{border-radius:4px;padding:0 2px}
+mark.rp-orig{background:var(--cited);color:var(--cited-ink)}
+mark.rp-plant{background:var(--bad-bg);color:var(--bad);font-weight:600}
+.rp-foot{margin-top:10px}
+
 /* ---------- log ---------- */
 .log-toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:14px}
 .seg{display:inline-flex;background:var(--soft);border-radius:10px;padding:3px}
