@@ -56,3 +56,5 @@ all pass (ok … / ok promote self-test)
 - `run_eval.py` writes PDFs into a temp dir per question (one PDF per files_dir), so `eval/pdfs/` is for
   inspection and for T09; nothing reads it at runtime.
 - The static score is jenga's score for the main claim **before** replay (replay caps it at 30).
+- `eval/.gitattributes` (`*.pdf binary`, staged as `gitattributes.eval`): the hand-written PDFs contain no NUL
+  bytes, so git would otherwise apply CRLF conversion on Windows checkouts and break their xref offsets.

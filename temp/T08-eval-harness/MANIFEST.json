@@ -19,7 +19,8 @@
     "pdfs/K03.pdf": "eval/pdfs/K03.pdf",
     "pdfs/K04.pdf": "eval/pdfs/K04.pdf",
     "pdfs/K05.pdf": "eval/pdfs/K05.pdf",
-    "pdfs/K06.pdf": "eval/pdfs/K06.pdf"
+    "pdfs/K06.pdf": "eval/pdfs/K06.pdf",
+    "gitattributes.eval": "eval/.gitattributes"
   },
   "tests": "python eval/test_eval.py"
 }
