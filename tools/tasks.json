@@ -1,0 +1,276 @@
+{
+ "integration_branch": "Vincent",
+ "test_cmd": "python test_jenga.py && python test_replay.py && python eval/test_eval.py && python tools/promote.py --self-test",
+ "roles": [
+  {
+   "id": "dev1",
+   "title": "Lead, eval and stats",
+   "person": "vincent",
+   "owns": [
+    "contracts.py",
+    "jenga.py",
+    "test_jenga.py",
+    "eval/",
+    "docs/results.md"
+   ]
+  },
+  {
+   "id": "dev2",
+   "title": "Agent and replay",
+   "person": "marco",
+   "owns": [
+    "agent4.py",
+    "llm.py",
+    "replay.py",
+    "test_replay.py"
+   ]
+  },
+  {
+   "id": "dev3",
+   "title": "Web app",
+   "person": "chris",
+   "owns": [
+    "app.py",
+    "webview.py",
+    "templates/",
+    "static/"
+   ]
+  },
+  {
+   "id": "dev4",
+   "title": "Demo, pitch and submission",
+   "person": "julie",
+   "owns": [
+    "demo/",
+    "README.md",
+    "docs/WRITEUP.md",
+    "samples/"
+   ]
+  }
+ ],
+ "tasks": [
+  {
+   "id": "T01",
+   "slug": "scaffold",
+   "title": "branch Vincent from origin/Chris; temp/ staging folder + tools/promote.py; .gitignore; contracts.py; stubs for llm, replay_claim, eval, demo, replay+results routes",
+   "role": "dev1",
+   "scope": [
+    "contracts.py",
+    ".gitignore",
+    "llm.py",
+    "replay.py",
+    "test_replay.py",
+    "eval/",
+    "demo/",
+    "app.py",
+    "templates/results.html",
+    "temp/",
+    "tools/promote.py"
+   ],
+   "depends": [],
+   "done_when": "install, py_compile, test_jenga, test_replay, eval/test_eval, promote --self-test all pass; python app.py serves / and /results; POST /runs/<id>/replay returns stub JSON"
+  },
+  {
+   "id": "T02",
+   "slug": "llm-client",
+   "title": "llm.make_client/default_model with AGENT_BASE_URL/AGENT_MODEL; agent4 uses it",
+   "role": "dev2",
+   "scope": [
+    "llm.py",
+    "agent4.py"
+   ],
+   "depends": [
+    "T01"
+   ],
+   "done_when": "python test_jenga.py passes; with AGENT_BASE_URL unset a real run uses Groq gpt-oss-120b; staged in temp/, APPROVED_BY a second agent, promoted with tools/promote.py"
+  },
+  {
+   "id": "T03",
+   "slug": "replay-claim",
+   "title": "replay.replay_claim for one claim with call cap, estimate_calls, disk cache",
+   "role": "dev2",
+   "scope": [
+    "replay.py",
+    "test_replay.py"
+   ],
+   "depends": [
+    "T01"
+   ],
+   "done_when": "test_replay.py passes offline; on a demo run replay_claim returns a CausalResult label, second call returns cached true with calls_used 0; staged in temp/, APPROVED_BY a second agent, promoted with tools/promote.py"
+  },
+  {
+   "id": "T04",
+   "slug": "perturb-magnitude",
+   "title": "perturb(term, magnitude) small/medium/large for years, numbers, names; recorded in PlantResult",
+   "role": "dev2",
+   "scope": [
+    "replay.py",
+    "test_replay.py"
+   ],
+   "depends": [
+    "T03"
+   ],
+   "done_when": "test_replay.py asserts perturb('1870','small') in 1866..1874 and != 1870; staged in temp/, APPROVED_BY a second agent, promoted with tools/promote.py"
+  },
+  {
+   "id": "T05",
+   "slug": "replay-ui",
+   "title": "Trust tab Pull the block button, cost estimate, polling, causal panel",
+   "role": "dev3",
+   "scope": [
+    "app.py",
+    "templates/run.html",
+    "static/app.js",
+    "static/app.css"
+   ],
+   "depends": [
+    "T01"
+   ],
+   "done_when": "clicking the button on a claim shows spinner then causal label and before/after answer, using a cached replay; staged in temp/, APPROVED_BY a second agent, promoted with tools/promote.py"
+  },
+  {
+   "id": "T06",
+   "slug": "results-page",
+   "title": "/results page rendering eval/results.json table + bar chart with CI",
+   "role": "dev3",
+   "scope": [
+    "app.py",
+    "templates/results.html",
+    "templates/base.html",
+    "static/app.css"
+   ],
+   "depends": [
+    "T01"
+   ],
+   "done_when": "/results renders from eval/results.json produced by run_eval --dry-run and by the real run; staged in temp/, APPROVED_BY a second agent, promoted with tools/promote.py"
+  },
+  {
+   "id": "T07",
+   "slug": "demo-dataset",
+   "title": "demo PDFs (known_fact, invented_fact), questions.json, pre-created runs in demo/RUNS.md",
+   "role": "dev4",
+   "scope": [
+    "demo/",
+    "data/runs/"
+   ],
+   "depends": [
+    "T01"
+   ],
+   "done_when": "both demo runs open from History and each has a single-claim cited answer; staged in temp/, APPROVED_BY a second agent, promoted with tools/promote.py"
+  },
+  {
+   "id": "T08",
+   "slug": "eval-harness",
+   "title": "eval/questions.jsonl (6 known, 6 invented), run_eval.py with --dry-run, stats.py",
+   "role": "dev1",
+   "scope": [
+    "eval/"
+   ],
+   "depends": [
+    "T01"
+   ],
+   "done_when": "python eval/run_eval.py --dry-run writes eval/results.json; python eval/test_eval.py passes; staged in temp/, APPROVED_BY a second agent, promoted with tools/promote.py"
+  },
+  {
+   "id": "T09",
+   "slug": "eval-run",
+   "title": "real 12-question pilot on Groq; docs/results.md",
+   "role": "dev1",
+   "scope": [
+    "eval/",
+    "docs/results.md"
+   ],
+   "depends": [
+    "T03",
+    "T08"
+   ],
+   "done_when": "eval/results.json from a real run is committed and docs/results.md reports rate, Wilson CI by family, AUROC; staged in temp/, APPROVED_BY a second agent, promoted with tools/promote.py"
+  },
+  {
+   "id": "T10",
+   "slug": "alibi-labels",
+   "title": "claim alibi field supported/unsupported/phantom + proposal 2x2 table in report",
+   "role": "dev1",
+   "scope": [
+    "jenga.py",
+    "test_jenga.py",
+    "contracts.py"
+   ],
+   "depends": [
+    "T01"
+   ],
+   "done_when": "test_jenga.py asserts alibi on honest and rationaliser agents; jenga.html shows the 2x2; staged in temp/, APPROVED_BY a second agent, promoted with tools/promote.py"
+  },
+  {
+   "id": "T11",
+   "slug": "ii-search-local",
+   "title": "run II-Search-4B through Ollama via AGENT_BASE_URL (stretch)",
+   "role": "dev2",
+   "scope": [
+    "llm.py",
+    "NOTES.md"
+   ],
+   "depends": [
+    "T02"
+   ],
+   "done_when": "one II-Search-4B run in data/runs/ or a NOTES.md entry explaining the failure; staged in temp/, APPROVED_BY a second agent, promoted with tools/promote.py"
+  },
+  {
+   "id": "T12",
+   "slug": "readme",
+   "title": "README: replay button, results page, demo, env vars; remove CV PDFs if no consent",
+   "role": "dev4",
+   "scope": [
+    "README.md",
+    "ai_files/",
+    "samples/"
+   ],
+   "depends": [
+    "T05"
+   ],
+   "done_when": "fresh clone + README steps reach a working demo run"
+  },
+  {
+   "id": "T13",
+   "slug": "writeup",
+   "title": "docs/WRITEUP.md per PLAN section 7",
+   "role": "dev4",
+   "scope": [
+    "docs/WRITEUP.md"
+   ],
+   "depends": [
+    "T09"
+   ],
+   "done_when": "all 7 sections filled with real numbers from docs/results.md"
+  },
+  {
+   "id": "T14",
+   "slug": "demo-video",
+   "title": "record 90s plan-B video from cached runs",
+   "role": "dev4",
+   "scope": [
+    "demo/RUNS.md"
+   ],
+   "depends": [
+    "T05",
+    "T07"
+   ],
+   "done_when": "video plays end to end, link in README"
+  },
+  {
+   "id": "T15",
+   "slug": "submit",
+   "title": "merge Vincent to main, tag v1.0, submit on portal",
+   "role": "dev4",
+   "scope": [
+    "README.md"
+   ],
+   "depends": [
+    "T12",
+    "T13",
+    "T14"
+   ],
+   "done_when": "portal confirms submission before 23:15; screenshot posted in main room"
+  }
+ ]
+}
