@@ -26,8 +26,8 @@ param(
   [switch]$Review,
   [switch]$List,
   [switch]$Cleanup,
-  [ValidateSet("default", "acceptEdits", "plan", "bypassPermissions")]
-  [string]$Mode = "acceptEdits"
+  [ValidateSet("auto", "default", "acceptEdits", "plan", "bypassPermissions")]
+  [string]$Mode = "auto"
 )
 
 $ErrorActionPreference = "Stop"
