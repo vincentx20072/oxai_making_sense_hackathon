@@ -1,3 +1,0 @@
-{"task": "T03", "author": "vincent.BOOK-22RI0P106T.claude-replay-claim",
- "files": {"replay.py": "replay.py", "test_replay.py": "test_replay.py"},
- "tests": "python test_replay.py"}
