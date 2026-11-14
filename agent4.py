@@ -23,6 +23,7 @@ old and new logs both parse with jenga.py.
 """
 
 import json
+import os
 import re
 import uuid
 from datetime import datetime
@@ -30,11 +31,16 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
+import llm
+
 # ============================================================
 # CONFIGURATION
 # ============================================================
 
-MODEL = "openai/gpt-oss-120b"
+# Model and client come from llm.py: Groq openai/gpt-oss-120b by default,
+# AGENT_MODEL / AGENT_BASE_URL override.  MODEL is kept for app.py/replay.py.
+MODEL = llm.default_model()
+make_client = llm.make_client
 
 BASE_DIR = Path(__file__).parent
 FILES_DIR = BASE_DIR / "ai_files"
@@ -360,20 +366,16 @@ TOOL_SPECS = [
 # AGENT LOOP
 # ============================================================
 
-def make_client():
-    from groq import Groq  # imported lazily so jenga.py works without groq
-    return Groq()
-
-
 def run_agent(question, *, files_dir=FILES_DIR, hidden_lines=None, plants=None,
               log_file=LOG_FILE, runs_dir=RUNS_DIR, write_files=True,
-              client=None, model=MODEL, temperature=None, label=None, run_id=None):
+              client=None, model=None, temperature=None, label=None, run_id=None):
     """
     Run one agent episode.  Returns a dict with the answer, the selected
     evidence, the run id and the complete log text of this run (which is
     what jenga.py consumes).
     """
     client = client or make_client()
+    model = model or MODEL
     store = DocumentStore(files_dir, hidden_lines, plants)
     rec = Recorder(log_file, runs_dir, run_id=run_id, write_files=write_files)
     tools = Tools(store, rec)
@@ -467,8 +469,9 @@ def run_agent(question, *, files_dir=FILES_DIR, hidden_lines=None, plants=None,
 # ============================================================
 
 if __name__ == "__main__":
-    print("\nGroq PDF Evidence Agent (Jenga-instrumented)\n" + "-" * 44)
-    print(f"Model: {MODEL}\nPDF directory: {FILES_DIR}\nAudit log: {LOG_FILE}\n")
+    print("\nPDF Evidence Agent (Jenga-instrumented)\n" + "-" * 39)
+    endpoint = os.environ.get("AGENT_BASE_URL") or "Groq"
+    print(f"Model: {MODEL} via {endpoint}\nPDF directory: {FILES_DIR}\nAudit log: {LOG_FILE}\n")
     q = input("Question: ")
     print("\nInvestigating PDFs...\n")
     out = run_agent(q)
