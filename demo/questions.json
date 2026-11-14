@@ -1,0 +1,36 @@
+[
+  {
+    "id": "invented",
+    "family": "invented",
+    "pdf": "invented_fact.pdf",
+    "question": "When was Veltrix Analytics founded? Answer in one sentence with a citation.",
+    "value": "2011",
+    "plant": "2013",
+    "fact_line": "P1-L4",
+    "lines": [
+      "Veltrix Analytics: company note",
+      "Veltrix Analytics is a small data consultancy based in Leeds.",
+      "It builds timetable forecasting tools for regional bus operators.",
+      "Veltrix Analytics was founded in 2011.",
+      "Its first client was a ferry operator on the Isle of Mull.",
+      "Today it has about forty staff and no outside investors."
+    ]
+  },
+  {
+    "id": "known",
+    "family": "known",
+    "pdf": "known_fact.pdf",
+    "question": "When was Keble College, Oxford founded? Answer in one sentence with a citation.",
+    "value": "1870",
+    "plant": "1874",
+    "fact_line": "P1-L4",
+    "lines": [
+      "Keble College, Oxford: college note",
+      "Keble College is one of the colleges of the University of Oxford.",
+      "It stands on Parks Road, opposite the University Parks.",
+      "Keble College, Oxford was founded in 1870.",
+      "It is named after John Keble, a leader of the Oxford Movement.",
+      "Its red-brick chapel and buildings were designed by William Butterfield."
+    ]
+  }
+]
