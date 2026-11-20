@@ -1,5 +1,8 @@
 # Jenga: ask about PDFs, then check whether the answer's citations hold up
 
+**Live demo: [oxaimakingsensehackathon.vercel.app](https://oxaimakingsensehackathon.vercel.app/)**
+(runs on Groq, so the Alibi judge is off there; see [Deploy on Vercel](#deploy-on-vercel-groq-demo)).
+
 Jenga is a Flask web app. You upload PDFs and write a prompt, and an AI agent (Claude Sonnet 5.5)
 answers with line-level citations. Two checks then test each claim in the answer:
 
