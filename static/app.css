@@ -351,3 +351,9 @@ pre.raw{white-space:pre-wrap;font-family:var(--mono);font-size:12px;background:v
 .brick-sw{display:inline-block;width:22px;height:10px;margin:0 6px 0 0;vertical-align:-1px}
 .tower-none{width:132px;border-bottom:3px solid var(--line);padding-bottom:6px;line-height:1.35}
 @media (max-width:720px){.jsum{flex-direction:column;align-items:flex-start}}
+.skipped{margin-top:14px;border-top:1px solid var(--line);padding-top:10px;font-size:14px}
+.skipped summary{cursor:pointer;color:var(--sub);font-weight:600}
+.skipped ul{list-style:none;margin:8px 0;padding:0}
+.skipped li{padding:5px 0;border-bottom:1px solid var(--line)}
+.skipped li:last-child{border-bottom:0}
+.skipped .c-id{display:inline-block;min-width:30px;color:var(--sub);font-family:var(--mono);font-size:12px}

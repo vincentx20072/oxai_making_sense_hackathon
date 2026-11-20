@@ -187,9 +187,10 @@ def analyse_run(run_id):
                                    encoding="utf-8")
     (d / "jenga.html").write_text(jenga.render_html(report, "Jenga traceability report"),
                                   encoding="utf-8")
-    return save_meta(run_id, analysed=True, analysis_error=None, trust_score=report["trust_score"],
-                     verdict_counts=report["verdict_counts"],
-                     n_claims=len(report["claims"]))
+    save_meta(run_id, analysed=True, analysis_error=None, trust_score=report["trust_score"],
+              verdict_counts=report["verdict_counts"], n_jenga=report["n_jenga"],
+              n_claims=len(report["claims"]))
+    return update_scores(run_id)   # a still-current judge result overrides the keyword Alibi
 
 
 def judge_path(run_id):
@@ -212,6 +213,7 @@ def run_judge_job(run_id, client=None):
         result = judge.judge_run(run, report, client)
         _write_json(judge_path(run_id), result)
         save_meta(run_id, judge_status="done", judge_cost_usd=result["cost_usd"])
+        update_scores(run_id)   # the judge decides which claims Jenga tests
     except Exception as e:  # shown on the Alibi tab
         save_meta(run_id, judge_status="error", judge_error=f"{type(e).__name__}: {e}"[:500])
 
@@ -418,13 +420,39 @@ def claim_flags(c):
 
 
 def alibi_grid(claims):
-    """The Alibi x Jenga 2x2 as {row: {col: {cls, name, claims}}}."""
+    """The Summary report as {row: {col: {cls, name, claims}}}: claims that
+    passed Alibi split by Jenga (used / not used); the rest in one cell."""
     cells = jenga.alibi_2x2(claims)
     return {row: {col: {"cls": jenga.QUADRANTS[(row, col)][0],
                         "name": jenga.QUADRANTS[(row, col)][1],
                         "claims": cells[(row, col)]}
-                  for col in ("used", "not used")}
+                  for (r, col) in jenga.QUADRANTS if r == row}
             for row in ("supported", "unsupported")}
+
+
+def apply_judge(run_id, report):
+    """Attach the judge's result to each claim and make its verdict the
+    claim's Alibi (a phantom citation stays phantom).  Returns judge.json, or
+    None when there is no judge result for these exact claims."""
+    judged = load_judge(run_id, report)
+    if judged:
+        for c in report["claims"]:
+            c["judge"] = judged["claims"].get(c["id"])
+            if c["judge"] and c.get("alibi") != "phantom":
+                c["alibi"] = JUDGE_TO_ALIBI.get(c["judge"]["verdict"], "unsupported")
+    return judged
+
+
+def update_scores(run_id):
+    """Store the Jenga-stage score (over claims that passed Alibi) in meta,
+    so the sidebar and tab badge match the page."""
+    report = load_report(run_id, load_meta(run_id))
+    if not report:
+        return load_meta(run_id)
+    apply_judge(run_id, report)
+    stage = jenga.jenga_stage(report["claims"])
+    return save_meta(run_id, trust_score=stage["score"], verdict_counts=stage["verdict_counts"],
+                     n_jenga=len(stage["passed"]), n_claims=len(report["claims"]))
 
 
 @app.get("/runs/<run_id>")
@@ -446,27 +474,27 @@ def view_run(run_id):
                    if run and run["answer"] else "")
     n_calls = sum(1 for t in turns for i in t["items"] if i["type"] in ("call", "select"))
 
-    replays, estimates, grid, n_supported, judged = {}, {}, None, 0, None
+    replays, estimates, grid, n_supported, judged, stage = {}, {}, None, 0, None, None
     if report:
         for c in report["claims"]:
             c["flags"] = claim_flags(c)
             c["tower"] = tower(c)
             c["used"], c["used_source"] = jenga.jenga_use(c)
-        judged = load_judge(run_id, report)
-        if judged:
-            for c in report["claims"]:
-                c["judge"] = judged["claims"].get(c["id"])
-                if c["judge"] and c.get("alibi") != "phantom":
-                    c["alibi"] = JUDGE_TO_ALIBI.get(c["judge"]["verdict"], "unsupported")
-        n_supported = sum(1 for c in report["claims"] if c.get("alibi") == "supported")
+        judged = apply_judge(run_id, report)
+        stage = jenga.jenga_stage(report["claims"])
+        if meta.get("trust_score") != stage["score"]:   # e.g. the judge finished since
+            meta = save_meta(run_id, trust_score=stage["score"],
+                             verdict_counts=stage["verdict_counts"], n_jenga=len(stage["passed"]))
+        n_supported = sum(1 for c in report["claims"] if jenga.passes_alibi(c))
         grid = alibi_grid(report["claims"])
         if tab == "jenga":
-            estimates = replay_estimates(report)
-            replays = {c["id"]: replay_state(run_id, c["id"])["status"] for c in report["claims"]}
+            estimates = replay_estimates({**report, "claims": stage["passed"]})
+            replays = {c["id"]: replay_state(run_id, c["id"])["status"] for c in stage["passed"]}
     return render_template(
         "run.html", meta=meta, run=run, turns=turns, report=report, tab=tab,
         replays=replays, estimates=estimates, max_replay_calls=replay.max_calls_default(),
-        grid=grid, n_supported=n_supported, judge_style=judge.STYLE,
+        grid=grid, n_supported=n_supported, judge_style=judge.STYLE, stage=stage,
+        not_tested_reason=jenga.not_tested_reason,
         alibi_style=jenga.ALIBI_STYLE, judged=judged,
         judge_status=meta.get("judge_status"), judge_model=llm.judge_model(),
         answer_html=answer_html, log_text=log_text, n_calls=n_calls,
@@ -678,8 +706,12 @@ def start_replay(run_id):
     if not (d / "report.json").exists():
         return jsonify({"error": "Run the Jenga analysis on this run first."}), 409
     report = json.loads((d / "report.json").read_text(encoding="utf-8"))
-    if not any(c["id"] == claim_id for c in report.get("claims", [])):
+    claim = next((c for c in report.get("claims", []) if c["id"] == claim_id), None)
+    if claim is None:
         return jsonify({"error": f"No claim {claim_id} in this report."}), 404
+    apply_judge(run_id, report)
+    if not jenga.jenga_testable(claim):
+        return jsonify({"error": "Jenga only tests cited claims that passed Alibi."}), 400
 
     cached = cached_replay(run_id, claim_id)
     if cached:  # served from disk: no API calls

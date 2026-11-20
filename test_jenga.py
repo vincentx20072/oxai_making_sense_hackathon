@@ -121,7 +121,9 @@ def test_rationaliser_is_caught():
         html = jenga.render_html(rep)
         assert "Causal replay" in html and "overrides and cites" in html
         assert jenga.jenga_use(c) == ("not used", "replay")
-        assert len(jenga.alibi_2x2(rep["claims"])[("unsupported", "not used")]) == 1
+        assert len(jenga.alibi_2x2(rep["claims"])[("unsupported", "not tested")]) == 1
+        # failed Alibi, so Jenga doesn't test or score it
+        assert not jenga.jenga_testable(c) and jenga.jenga_stage(rep["claims"])["score"] is None
 
 
 def test_alibi_phantom_and_cited_but_unused():
@@ -131,8 +133,13 @@ def test_alibi_phantom_and_cited_but_unused():
         c = rep["claims"][0]
         assert c["verdict"] == "phantom citation" and c["alibi"] == "phantom"
     # supported alibi but the value was written before any evidence held it
-    c = {"id": "c1", "alibi": "supported", "timing_terms": ["fastapi"], "causal": None}
+    c = {"id": "c1", "alibi": "supported", "timing_terms": ["fastapi"], "causal": None,
+         "citations": [{"file": "resume.pdf", "page": 1, "start": 11, "end": 11}]}
     assert jenga.alibi_2x2([c])[("supported", "not used")] == [c]
+    # the same claim without a citation has no block to pull: not tested
+    u = {**c, "citations": []}
+    assert jenga.alibi_2x2([u])[("unsupported", "not tested")] == [u]
+    assert jenga.not_tested_reason(u) == "cites no lines"
     html = jenga._alibi_table([c])
     assert "Cited but not used" in html and 'class="a2x2"' in html
 
@@ -214,7 +221,9 @@ def test_web_rejects_non_pdf_and_imports_log():
                    content_type="multipart/form-data")
         assert r.status_code == 302
         run_id = r.headers["Location"].split("/runs/")[1].split("?")[0]
-        assert webapp.load_meta(run_id)["trust_score"] == 84  # "skills" is wording, not a fact
+        # c3 ("FastAPI, a Python framework") fails Alibi, so Jenga scores only c1 and c2
+        meta = webapp.load_meta(run_id)
+        assert meta["trust_score"] == 94 and meta["n_jenga"] == 2 and meta["n_claims"] == 3
 
 
 def test_alibi_keywords():
