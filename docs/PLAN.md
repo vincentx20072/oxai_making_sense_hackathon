@@ -81,7 +81,7 @@ None of these come from organiser text; every item is **[VERIFY]** until someone
 browser ──POST /runs──▶ app.py ──thread──▶ agent4.run_agent ──▶ llm.make_client() ──▶ Groq | Ollama
                          │                    │ writes data/runs/<id>/{agent.log, trace/<id>/trace.jsonl, answer.json}
                          │◀── GET /api/runs/<id> (progress via webview.progress)
-                         ├──POST /runs/<id>/analyse──▶ jenga.analyse_log_text ──▶ report.json, jenga.html
+                         ├──POST /runs/<id>/analyse──▶ jenga.analyse_log_text ──▶ report.json
                          ├──POST /runs/<id>/replay {claim_id,…} (NEW) ──thread──▶ replay.replay_claim ──▶ agent4.run_agent ×k
                          │                                         └──▶ data/runs/<id>/replay/<claim_id>.json (cache)
                          └──GET /results (NEW) ◀── eval/results.json ◀── eval/run_eval.py (CLI, offline from the web app)
@@ -224,7 +224,7 @@ Python 3.11+ (tested on 3.13), Flask >=3, pypdf >=4, groq >=0.9; fpdf2 only for 
 - `temp/` [Dev 1: lead, process only] — staging area. Every change lands first in `temp/<task-id>-<slug>/` with `MANIFEST.json` {task, author, files: {temp path: destination}, tests}, `PROPOSAL.md`, and the proposed files. A second agent with a different identity reviews it and writes `APPROVED_BY`; only then does `python tools/promote.py temp/<task-id>-<slug>` copy the files into place, run the tests (rolling back on failure) and delete the folder. `temp/README.md` explains this.
 - `tools/promote.py` [Dev 1] — the promotion script described above; refuses without `APPROVED_BY` ≠ author.
 - `contracts.py` [Dev 1: lead] — TypedDicts shared by all modules: `TraceStep`, `EvidenceSelection`, `AgentAnswer`, `CitedLine`, `Deduction`, `Verdict` (Literal), `Claim`, `JengaReport`, `Magnitude` (Literal small|medium|large), `ReplayRequest`, `RemovalResult`, `PlantResult`, `CausalLabel` (Literal faithful|post-rationalised|unclear), `CausalResult`, `ReplayResult`, `EvalQuestion`, `EvalRow`, `EvalSummary`. Changes only via `CONTRACT contracts.py: old -> new` + reply from Dev 1.
-- `jenga.py` [Dev 1] — log parser, claim splitter, static scoring, infographic (`analyse_log_text`, `analyse_run`, `render_html`, CLI `python jenga.py x.log --out out`). Adds `claim["alibi"]` (supported|unsupported|phantom) in T10.
+- `jenga.py` [Dev 1] — log parser, claim splitter, static scoring (`analyse_log_text`, `analyse_run`, CLI `python jenga.py x.log --out out`). Adds `claim["alibi"]` (supported|unsupported|phantom) in T10.
 - `test_jenga.py` [Dev 1] — offline tests with FakeClient.
 - `eval/questions.jsonl` [Dev 1] — 12 EvalQuestion rows (6 known, 6 invented).
 - `eval/pdfs/` [Dev 1] — generated one-page PDFs for eval questions.

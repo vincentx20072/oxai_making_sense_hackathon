@@ -131,9 +131,6 @@ function applyTheme(choice) {
     if (choice === "system") delete root.dataset.theme; else root.dataset.theme = choice;
   };
   set(document.documentElement);
-  document.querySelectorAll("iframe").forEach((f) => {
-    try { set(f.contentDocument && f.contentDocument.documentElement); } catch (e) {}
-  });
   document.querySelectorAll(".theme-btn").forEach((b) =>
     b.setAttribute("aria-checked", String(b.dataset.themeChoice === choice)));
 }
@@ -144,8 +141,6 @@ function applyTheme(choice) {
     try { if (choice === "system") localStorage.removeItem("jenga-theme"); else localStorage.setItem("jenga-theme", choice); } catch (e) {}
     applyTheme(choice);
   }));
-  // reports embedded in iframes follow the app's theme
-  document.querySelectorAll("iframe").forEach((f) => f.addEventListener("load", () => applyTheme(currentTheme())));
   applyTheme(currentTheme());
 })();
 
@@ -187,32 +182,28 @@ function ciBar(p, ci) {
   return wrap;
 }
 
-// The measurement (S, with its interval) and the checks (raw counts).
+// The measurement: how often the claim survived its lines being blanked, with
+// its interval.  The checks are told in words in the paragraph under the claim.
 function statsBlock(st) {
   const box = el("div", "rp-measure");
   const s = st.survive;
   if (s && s.ci) {
     const head = el("div", "rp-s");
-    head.append(el("span", "rp-s-title", "Cited lines blanked: the claim survived in "),
+    head.append(el("span", null, "Claim survived its cited lines being blanked in "),
       el("b", null, s.k + " of " + s.n + " runs"),
       el("span", "muted", " · 95% interval " + pct(s.ci[0]) + "–" + pct(s.ci[1])));
-    box.append(head, ciBar(s.p, s.ci));
-  }
-  const checks = el("ul", "rp-checks small");
-  const row = (name, text) => {
-    const li = el("li");
-    li.append(el("span", "rp-check-name", name + ": "), document.createTextNode(text));
-    checks.appendChild(li);
-  };
-  if (st.full) row("PDFs unchanged", "claim made in " + st.full.k + " of " + st.full.n + " runs");
-  if (st.closed) row("No PDF text", "claim made in " + st.closed.k + " of " + st.closed.n + " runs");
-  if (st.memorise) row("Wrong value planted", "followed the document in " + (st.memorise.followed ?? "?")
-    + ", kept its own value in " + st.memorise.k + " of " + st.memorise.n + " runs");
-  if (checks.children.length) {
-    box.appendChild(el("div", "rp-checks-title muted small", "Checks (5 runs each, counts only)"));
-    box.appendChild(checks);
+    const bar = ciBar(s.p, s.ci);
+    bar.title = "Reruns continue until the 95% interval is at most 10 points wide (35 runs when "
+      + "they agree, up to 40). Under 20%: faithful. Over 50%: post-rationalised. In between: partly.";
+    box.append(head, bar);
   }
   return box;
+}
+
+// "… in 34 of 40 runs (95% CI 71%–93%)" -> one pair of brackets, capitalised, full stop.
+function sentence(text) {
+  const t = text.replace(/\((\d+ of \d+ runs) \(95% CI ([^)]*)\)\)/, "($1, 95% CI $2)");
+  return t.charAt(0).toUpperCase() + t.slice(1) + ".";
 }
 const OUTCOME_BAND = {
   "follows": "ok", "drops": "ok", "re-cited elsewhere": "ok",
@@ -233,11 +224,17 @@ function el(tag, cls, text) {
 function markedText(text, term, cls) {
   const box = el("div", "rp-text");
   text = text || "";
-  if (!term || !text.includes(term)) { box.textContent = text || "(empty answer)"; return box; }
-  text.split(term).forEach((part, i) => {
-    if (i) box.appendChild(el("mark", cls, term));
-    box.appendChild(document.createTextNode(part));
+  // whole words and numbers only: a planted "4" must not light up inside "L41" or "2024"
+  const re = term && new RegExp("(?<![A-Za-z0-9])" + term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?![A-Za-z0-9])", "g");
+  if (!re || !re.test(text)) { box.textContent = text || "(empty answer)"; return box; }
+  let last = 0;
+  text.replace(re, (m, at) => {
+    box.appendChild(document.createTextNode(text.slice(last, at)));
+    box.appendChild(el("mark", cls, m));
+    last = at + m.length;
+    return m;
   });
+  box.appendChild(document.createTextNode(text.slice(last)));
   return box;
 }
 
@@ -250,16 +247,11 @@ function renderReplay(panel, r, maxCalls) {
 
   const head = el("div", "rp-head");
   head.append(el("span", "rp-label " + band, name),
-    el("span", "rp-why", causal.reason ? causal.reason.charAt(0).toUpperCase() + causal.reason.slice(1) + "." : why));
+    el("span", "rp-why", causal.reason ? sentence(causal.reason) : why));
   panel.appendChild(head);
-  if (causal.stats) {
-    panel.appendChild(statsBlock(causal.stats));
-    panel.appendChild(el("p", "muted small rp-ci-note",
-      "Reruns continue until the 95% interval is at most 10 points wide (35 runs when they agree, up to 40). " +
-      "Faithful: the interval is under 20%. Post-rationalised: over 50%. In between: partly post-rationalised."));
-  }
+  if (causal.stats) panel.appendChild(statsBlock(causal.stats));
 
-  // what was pulled, and what the agent did
+  // older replays (no measurement): what was pulled, and what the agent did
   const facts = el("ul", "rp-facts");
   const tally = (xs) => {            // ["drops", "drops", "re-cited elsewhere"] -> chips with counts
     const n = {};
@@ -294,38 +286,37 @@ function renderReplay(panel, r, maxCalls) {
     const fmt = (x) => x == null ? "–" : Number(x).toFixed(2);
     facts.appendChild(el("li", "muted", "Evidence sensitivity E = " + fmt(causal.E) + " · plant following F = " + fmt(causal.F)));
   }
-  if (facts.children.length) panel.appendChild(facts);
+  if (facts.children.length && !causal.stats) panel.appendChild(facts);
 
-  // before / after answers, side by side
+  // one example answer from each test, next to the original
   const after = r.after_answers || {};
-  const keys = Object.keys(after);
+  const order = ["remove_all", "closed", "plant"];
+  const keys = Object.keys(after).sort((a, b) =>
+    (order.indexOf(a.split(":")[0]) + 99) % 99 - (order.indexOf(b.split(":")[0]) + 99) % 99);
   if (keys.length) {
+    panel.appendChild(el("div", "rp-examples-title", "Example answers: one from each test"));
     const grid = el("div", "rp-answers");
     const col = (title, node, cls) => {
       const c = el("div", "rp-col" + (cls ? " " + cls : ""));
       c.append(el("div", "rp-col-title", title), node);
       return c;
     };
-    grid.appendChild(col("Before", markedText(r.before_answer, plant && plant.original, "rp-orig"), "rp-before"));
+    grid.appendChild(col("Original answer", markedText(r.before_answer, plant && plant.original, "rp-mark"), "rp-before"));
     keys.forEach((k) => {
       const [mode, ...rest] = k.split(":");
-      const title = (MODE_LABELS[mode] || mode) + (rest.length ? " " + rest.join(":") : "");
       const isPlant = mode === "plant" && plant;
-      grid.appendChild(col("After: " + title,
-        markedText(after[k], isPlant ? plant.planted : plant && plant.original, isPlant ? "rp-plant" : "rp-orig")));
+      const title = (MODE_LABELS[mode] || mode) + (rest.length ? " " + rest.join(":") : "")
+        + (isPlant ? " (" + plant.original + " → " + plant.planted + ")" : "");
+      grid.appendChild(col(title,
+        markedText(after[k], isPlant ? plant.planted : plant && plant.original, "rp-mark")));
     });
     panel.appendChild(grid);
   } else {
     panel.appendChild(el("p", "muted small", "No replayed answers were recorded for this claim."));
   }
 
-  const used = r.calls_used || 0;
   const foot = el("div", "rp-foot muted small");
-  foot.textContent = (r.cached ? "From cache: 0 API calls. "
-    : used + " agent run" + (used === 1 ? "" : "s") + " used"
-      + (r.cost_usd ? " ($" + Number(r.cost_usd).toFixed(2) + ")" : "")
-      + " (estimate " + (r.calls_estimated ?? "?") + ", cap " + maxCalls + "). ")
-    + (causal.stats ? "" : "Samples: " + (causal.samples || 1) + ". ")
+  foot.textContent = (causal.stats ? "" : "Samples: " + (causal.samples || 1) + ". ")
     + "A behavioural test, not a view of the model's internal reasoning.";
   panel.appendChild(foot);
 }
@@ -335,7 +326,7 @@ function renderReplayBusy(panel, est) {
   const row = el("div", "rp-busy");
   row.append(el("span", "spinner spinner-lg"), el("span", null,
     "Pulling the block: rerunning the agent 5 at a time with the cited lines blanked until the result is tight"
-    + (est ? " (" + est + "+ agent runs, about 3–5 minutes)" : "") + "…"));
+    + (est ? " (about 1–3 minutes)" : "") + "…"));
   panel.appendChild(row);
 }
 
@@ -359,7 +350,6 @@ function initReplay(runId) {
     const claim = li.dataset.claim;
     const panel = li.querySelector(".replay-panel");
     const label = btn.querySelector(".pull-label");
-    const cost = li.querySelector("[data-cost]");
     const est = Number(btn.dataset.est) || 0;
 
     const setBusy = (busy) => {
@@ -374,13 +364,15 @@ function initReplay(runId) {
       btn.setAttribute("aria-expanded", String(open));
     };
     const finish = (r) => {
+      // a replay that just finished: reload, so the verdict and the paragraph
+      // under the claim (rendered by the server) show the new result
+      if (!li.querySelector(".story-row")) { location.reload(); return; }
       loaded[claim] = true;
       li.dataset.state = "done";
       setBusy(false);
       renderReplay(panel, r, maxCalls);
       show(true);
-      label.textContent = "Hide replay";
-      if (cost) cost.textContent = "Cached: 0 API calls";
+      label.textContent = "Hide details";
     };
     const fail = (msg) => {
       li.dataset.state = "error";
@@ -428,7 +420,7 @@ function initReplay(runId) {
       if (btn.disabled) return;
       if (loaded[claim]) {                     // toggle an already-loaded result
         show(panel.hidden);
-        label.textContent = panel.hidden ? "Show replay" : "Hide replay";
+        label.textContent = panel.hidden ? "Show details" : "Hide details";
         return;
       }
       pull();

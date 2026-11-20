@@ -8,11 +8,16 @@ judge asks the stronger question, the way ALCE / FActScore score attributions:
   2. for each fact, find the shown PDF lines that state it, and mark it
      supported / not found / contradicted.
 
-Everything after that is counting, done here and not by the model:
+Everything after that is counting, done here and not by the model.  A claim's
+verdict is its worst fact, one of four:
 
-  facts supported      supported atoms / all atoms of the claim
-  cited lines used     cited lines that support at least one atom / cited lines
-  miscited             a fact is supported, but only by lines the claim did not cite
+  contradicted   a fact contradicts the PDF
+  not found      a fact isn't in the PDF (or the claim has no checkable fact)
+  miscited       every fact is in the PDF, but not all in the lines it cites
+  supported      every fact is in the lines it cites
+
+The claim's kind (document fact / judgement / outside knowledge) is shown
+beside it; it doesn't change the rule.
 
 One call per run (all claims at once, structured JSON output), cached in
 data/runs/<id>/judge.json.  Model: llm.judge_model() (claude-haiku-5-5).
@@ -75,11 +80,8 @@ SCHEMA = {
 }
 
 # verdict -> chip style (same bands as the rest of the UI)
-STYLE = {"supported": "ok", "grounded judgement": "ok",
-         "supported, miscited": "warn", "partly supported": "warn",
-         "partly grounded judgement": "warn", "opinion": "muted",
-         "outside knowledge": "warn", "not found": "bad",
-         "ungrounded judgement": "bad", "contradicted": "bad"}
+VERDICTS = ("supported", "miscited", "not found", "contradicted")   # best to worst
+STYLE = {"supported": "ok", "miscited": "warn", "not found": "bad", "contradicted": "bad"}
 
 
 def _sig(report):
@@ -131,25 +133,17 @@ def score_claim(item, cited):
     located = [a for a in sup if a["lines"]]   # absence atoms have no line to cite
     in_cited = [a for a in located if cited & set(a["lines"])]
     used = sorted(cited & {l for a in sup for l in a["lines"]})
-    kind = item.get("kind", "document fact")
+    kind = item.get("kind") or "document fact"
     if contra:
         verdict = "contradicted"
-    elif kind == "outside knowledge" and not atoms:
-        verdict = "outside knowledge"
-    elif kind == "judgement":
-        verdict = ("opinion" if not atoms else
-                   "grounded judgement" if len(sup) == len(atoms) else
-                   "partly grounded judgement" if sup else "ungrounded judgement")
-    elif not atoms or not sup:
-        verdict = "not found"
-    elif len(sup) < len(atoms):
-        verdict = "partly supported"
+    elif not atoms or len(sup) < len(atoms):
+        verdict = "not found"        # a fact missing, or nothing checkable
     elif len(in_cited) < len(located):
-        verdict = "supported, miscited"   # true, but (partly) from lines it didn't cite
+        verdict = "miscited"         # all true, but (partly) from lines it didn't cite
     else:
         verdict = "supported"
     return {"kind": kind, "verdict": verdict, "style": STYLE[verdict],
-            "atoms": atoms, "note": item.get("note", ""),
+            "atoms": atoms, "note": item.get("note") or "",
             "n_atoms": len(atoms), "n_supported": len(sup), "n_contradicted": len(contra),
             "n_in_cited": len(in_cited), "cited_lines": sorted(cited),
             "cited_used": used}
@@ -194,6 +188,17 @@ def with_interval(totals):
     in this answer's facts, not the judge's own mistakes."""
     totals["ci"] = intervals.wilson(totals.get("supported", 0), totals.get("atoms", 0))
     return totals
+
+
+def rescore(judged):
+    """Recount verdicts from the stored facts, so a judge.json written under
+    older verdict names reads with the current four (no model call)."""
+    for r in judged.get("claims", {}).values():
+        r.update(score_claim({"kind": r.get("kind"), "atoms": r.get("atoms", []),
+                              "note": r.get("note", "")}, r.get("cited_lines", [])))
+    judged.setdefault("totals", {})["verdicts"] = _count(
+        r["verdict"] for r in judged.get("claims", {}).values())
+    return with_interval(judged["totals"])
 
 
 def _count(xs):

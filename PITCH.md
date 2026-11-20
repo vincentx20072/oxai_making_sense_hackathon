@@ -48,8 +48,10 @@ PDF lines: 100%, with a 95% interval of 76–100%.
 2. A judge model (Claude Haiku 5.5, held to a JSON schema) breaks each claim into atomic facts,
    as FActScore does (Min et al., 2023).
 3. For each fact it returns *supported*, *not found* or *contradicted*, plus the line that holds it.
-4. Code, not the model, turns those counts into each claim's verdict: supported, partly supported,
-   supported but mis-cited, contradicted or not found. Opinions are graded on the facts they rest on.
+4. Code, not the model, gives each claim one of four verdicts, decided by its worst fact:
+   **supported** (every fact is in the cited lines), **miscited** (every fact is in the PDF, but not
+   all in the cited lines), **not found** or **contradicted**. The claim's type (document fact,
+   judgement or outside knowledge) is shown beside it but doesn't change the rule.
 
 The score is FActScore's precision:
 

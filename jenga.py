@@ -36,17 +36,14 @@ replay.replay_report() yourself if you have the budget:
 
 Usage
 -----
-  python jenga.py samples/agent4.log                 # writes report + infographic
+  python jenga.py samples/agent4.log                 # writes report.json, claims.jsonl, jenga.jsonl
 
 Library use (e.g. from the website):
   reports = analyse_log_text(text)          # list of report dicts, one per run
-  html    = render_html(reports)            # self-contained infographic
 """
 
 import argparse
-import html as _html
 import json
-import math
 import re
 import sys
 from pathlib import Path
@@ -700,12 +697,8 @@ def analyse_log_text(text):
 
 
 # ============================================================
-# 5. INFOGRAPHIC (self-contained HTML + inline SVG)
+# 5. STYLES AND THE ALIBI x JENGA GRID (used by the web app)
 # ============================================================
-
-def esc(x):
-    return _html.escape(str(x), quote=True)
-
 
 VERDICT_STYLE = {
     "grounded": ("ok", "Grounded"),
@@ -714,209 +707,6 @@ VERDICT_STYLE = {
     "phantom citation": ("bad", "Phantom citation"),
     "uncited": ("muted", "Uncited"),
 }
-
-CSS = """
-:root{--bg:#f7f6f3;--card:#fff;--ink:#1d1d1f;--sub:#5f6368;--line:#e3e1dc;
---ok:#1a7f5a;--ok-bg:#e3f4ec;--warn:#a15c00;--warn-bg:#fdf0dc;--bad:#b3261e;--bad-bg:#fbe5e3;
---muted:#6b6b6b;--muted-bg:#ececec;--acc:#3b5bdb;--acc2:#9aaef0;--dead:#d6d3cc}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141416;--card:#1f1f23;
---ink:#ececf0;--sub:#a3a3ad;--line:#33333a;--ok:#5fd3a2;--ok-bg:#16352a;--warn:#f0b35c;
---warn-bg:#3a2a12;--bad:#ff8a80;--bad-bg:#3d1c1a;--muted:#b0b0b0;--muted-bg:#2c2c30;
---acc:#8ea6ff;--acc2:#4a5a99;--dead:#3c3a36}}
-:root[data-theme="dark"]{--bg:#141416;--card:#1f1f23;--ink:#ececf0;--sub:#a3a3ad;--line:#33333a;
---ok:#5fd3a2;--ok-bg:#16352a;--warn:#f0b35c;--warn-bg:#3a2a12;--bad:#ff8a80;--bad-bg:#3d1c1a;
---muted:#b0b0b0;--muted-bg:#2c2c30;--acc:#8ea6ff;--acc2:#4a5a99;--dead:#3c3a36}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);
-font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-.wrap{max-width:1040px;margin:0 auto;padding:28px 16px 60px}
-.wrap.embedded{padding:4px 2px 8px}.wrap.embedded>h2:first-child{margin-top:0}
-h1{font-size:26px;margin:0 0 4px}h2{font-size:18px;margin:28px 0 10px}
-.sub{color:var(--sub);font-size:13px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
-.hero{display:grid;grid-template-columns:170px 1fr;gap:22px;align-items:center}
-@media (max-width:640px){.hero{grid-template-columns:1fr}.claim{grid-template-columns:1fr!important}}
-.q{font-size:17px;font-weight:600;margin:4px 0 10px}
-.chips{display:flex;flex-wrap:wrap;gap:6px}
-.chip{border-radius:999px;padding:3px 10px;font-size:12.5px;font-weight:600;white-space:nowrap}
-.ok{color:var(--ok);background:var(--ok-bg)}.warn{color:var(--warn);background:var(--warn-bg)}
-.bad{color:var(--bad);background:var(--bad-bg)}.muted{color:var(--muted);background:var(--muted-bg)}
-.timeline{overflow-x:auto;padding-bottom:6px}
-.claim{display:grid;grid-template-columns:230px 1fr;gap:20px;margin-top:14px}
-.ctext{font-size:15.5px;font-weight:600;margin:6px 0 10px}
-.metric{display:grid;grid-template-columns:150px 1fr 44px;gap:8px;align-items:center;
-font-size:13px;margin:5px 0}
-.bar{height:9px;background:var(--muted-bg);border-radius:6px;overflow:hidden}
-.bar>i{display:block;height:100%;background:var(--acc);border-radius:6px}
-ul.ded{margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--sub)}
-.term{border:1px solid var(--line);border-radius:7px;padding:2px 8px;font-size:12.5px}
-.t-cited{border-color:var(--ok);color:var(--ok)}.t-else{border-color:var(--warn);color:var(--warn)}
-.t-none{border-color:var(--bad);color:var(--bad)}
-.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--sub);margin-top:8px}
-.sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:5px}
-.notes{font-size:13px;color:var(--sub)}
-details summary{cursor:pointer;color:var(--sub);font-size:13px;margin-top:10px}
-pre{white-space:pre-wrap;font-size:12.5px;background:var(--bg);padding:10px;border-radius:8px}
-table.a2x2{width:100%;border-collapse:collapse;font-size:13.5px}
-.a2x2 th,.a2x2 td{border:1px solid var(--line);padding:10px;text-align:left;vertical-align:top}
-.a2x2 th{font-weight:600;width:28%}.a2x2 td .n{font-size:22px;font-weight:700;margin:4px 0 0}
-.causal{margin-top:10px;border-top:1px dashed var(--line);padding-top:10px;font-size:13px}
-"""
-
-
-def _donut(score, size=150):
-    if score is None:
-        score = 0
-    r, c = 58, 2 * math.pi * 58
-    cls = "ok" if score >= 75 else "warn" if score >= 45 else "bad"
-    return (f'<svg width="{size}" height="{size}" viewBox="0 0 150 150" role="img" '
-            f'aria-label="Answer traceability {score} out of 100">'
-            f'<circle cx="75" cy="75" r="{r}" fill="none" stroke="var(--muted-bg)" stroke-width="14"/>'
-            f'<circle cx="75" cy="75" r="{r}" fill="none" stroke="var(--{cls})" stroke-width="14" '
-            f'stroke-linecap="round" stroke-dasharray="{c * score / 100:.1f} {c:.1f}" '
-            f'transform="rotate(-90 75 75)"/>'
-            f'<text x="75" y="80" text-anchor="middle" font-size="34" font-weight="700" '
-            f'fill="var(--ink)">{score}</text>'
-            f'<text x="75" y="102" text-anchor="middle" font-size="11" fill="var(--sub)">'
-            f'traceability / 100</text></svg>')
-
-
-def _timeline(rep):
-    steps = [s for s in rep["steps"] if s["tool"] != "think"] or rep["steps"]
-    if not steps:
-        return ""
-    idx_to_pos = {}
-    full = rep["steps"]
-    for n, s in enumerate(full):
-        # map every step (incl. think) to the nearest visible step at or after it
-        vis = next((k for k, v in enumerate(steps) if v["idx"] >= s["idx"]), len(steps) - 1)
-        idx_to_pos[n] = vis
-    x0 = 110
-    gap = max(96, min(128, 700 // max(1, len(steps) - 1)))
-    w = max(560, x0 + gap * (len(steps) - 1) + 80)
-    marks = rep["term_marks"]
-    rows = [(t, m) for t, m in marks.items()
-            if m["evidence_step"] is not None or m["own_step"] is not None]
-    h = 110 + 22 * len(rows)
-    color = {"search_pdf": "var(--acc)", "read_pdf_pages": "var(--acc)",
-             "select_evidence": "var(--ok)", "answer": "var(--ink)"}
-    parts = [f'<svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" role="img" '
-             f'aria-label="Timeline of agent steps">',
-             f'<line x1="{x0}" y1="40" x2="{x0 + gap * (len(steps) - 1)}" y2="40" '
-             f'stroke="var(--line)" stroke-width="3"/>']
-    for k, s in enumerate(steps):
-        x = x0 + gap * k
-        parts.append(f'<circle cx="{x}" cy="40" r="9" fill="{color.get(s["tool"], "var(--sub)")}"/>')
-        parts.append(f'<text x="{x}" y="18" text-anchor="middle" font-size="11" '
-                     f'fill="var(--sub)">step {k + 1}</text>')
-        parts.append(f'<text x="{x}" y="68" text-anchor="middle" font-size="11.5" '
-                     f'fill="var(--ink)">{esc(s["label"][:18])}</text>')
-    y = 100
-    for t, m in rows:
-        parts.append(f'<text x="4" y="{y + 4}" font-size="11.5" fill="var(--sub)">{esc(t[:14])}</text>')
-        if m["evidence_step"] is not None:
-            x = x0 + gap * idx_to_pos.get(m["evidence_step"], 0)
-            parts.append(f'<rect x="{x - 6}" y="{y - 6}" width="12" height="12" rx="3" '
-                         f'fill="var(--ok)"><title>first seen in a tool result</title></rect>')
-        if m["own_step"] is not None:
-            x = x0 + gap * idx_to_pos.get(m["own_step"], 0)
-            col = "var(--bad)" if m["early"] else "var(--acc2)"
-            parts.append(f'<circle cx="{x + (14 if m["evidence_step"] == m["own_step"] else 0)}" '
-                         f'cy="{y}" r="6" fill="none" stroke="{col}" stroke-width="2.5">'
-                         f'<title>first written by the agent</title></circle>')
-        y += 22
-    parts.append("</svg>")
-    legend = ('<div class="legend"><span><i class="sw" style="background:var(--ok)"></i>'
-              'value first appears in evidence</span><span><i class="sw" style="border:2.5px '
-              'solid var(--acc2);border-radius:50%"></i>agent writes it after seeing it</span>'
-              '<span><i class="sw" style="border:2.5px solid var(--bad);border-radius:50%"></i>'
-              'agent writes it BEFORE any evidence (searching to confirm)</span></div>')
-    return f'<div class="timeline">{"".join(parts)}</div>{legend}'
-
-
-def _tower(claim):
-    """Jenga tower: one block per cited line, bottom = first cited line."""
-    lines = claim["cited_lines"]
-    if not lines:
-        return ('<svg width="210" height="90" role="img" aria-label="No citations">'
-                '<rect x="20" y="60" width="170" height="10" rx="2" fill="var(--line)"/>'
-                '<text x="105" y="45" text-anchor="middle" font-size="12" fill="var(--sub)">'
-                'no blocks: uncited</text></svg>')
-    bh, gap = 30, 5
-    shown = lines[:9]
-    h = 30 + len(shown) * (bh + gap)
-    out = [f'<svg width="210" height="{h}" viewBox="0 0 210 {h}" role="img" '
-           f'aria-label="Citation tower">']
-    style = {"load-bearing": ('fill="var(--acc)"', "var(--card)"),
-             "supporting": ('fill="var(--acc2)"', "var(--ink)"),
-             "dead weight": ('fill="var(--dead)"', "var(--sub)"),
-             "phantom": ('fill="none" stroke="var(--bad)" stroke-width="2" '
-                         'stroke-dasharray="5 4"', "var(--bad)")}
-    for n, x in enumerate(shown):
-        y = h - 12 - (n + 1) * (bh + gap) + gap
-        off = (n % 2) * 8
-        attrs, tc = style[x["role"]]
-        tip = f'P{x["page"]}-L{x["line"]} ({x["role"]}, {x["status"]}): {x["text"]}'
-        out.append(f'<g><title>{esc(tip)}</title><rect x="{12 + off}" y="{y}" width="178" '
-                   f'height="{bh}" rx="4" {attrs}/>'
-                   f'<text x="{22 + off}" y="{y + 19}" font-size="11" fill="{tc}" '
-                   f'font-weight="600">L{x["line"]}</text>'
-                   f'<text x="{50 + off}" y="{y + 19}" font-size="10.5" fill="{tc}">'
-                   f'{esc((x["text"] or "(not shown)")[:24])}</text></g>')
-    out.append(f'<rect x="4" y="{h - 10}" width="202" height="6" rx="3" fill="var(--line)"/>')
-    if len(lines) > len(shown):
-        out.append(f'<text x="105" y="12" text-anchor="middle" font-size="11" '
-                   f'fill="var(--sub)">+{len(lines) - len(shown)} more</text>')
-    out.append("</svg>")
-    return "".join(out)
-
-
-def _bar(label, value, hint=""):
-    if value is None:
-        return (f'<div class="metric"><span title="{esc(hint)}">{esc(label)}</span>'
-                f'<span class="sub">n/a</span><span></span></div>')
-    return (f'<div class="metric"><span title="{esc(hint)}">{esc(label)}</span>'
-            f'<div class="bar"><i style="width:{value * 100:.0f}%"></i></div>'
-            f'<b>{value:.2f}</b></div>')
-
-
-def _causal_html(c):
-    k = c.get("causal")
-    if not k:
-        return ""
-    rows = []
-    st = k.get("stats") or {}
-    s = st.get("survive")
-    if s and s.get("ci"):
-        rows.append(f'<div class="sub"><b>Cited lines blanked:</b> the claim survived in {s["k"]} '
-                    f'of {s["n"]} runs (95% CI {s["ci"][0]:.0%}&ndash;{s["ci"][1]:.0%})</div>')
-    checks = {"full": "PDFs unchanged: claim made", "closed": "No PDF text: claim made",
-              "memorise": "Wrong value planted: kept its own value"}
-    for key, name in checks.items():
-        r = st.get(key)
-        if r and r.get("n"):
-            rows.append(f'<div class="sub">{esc(name)} in {r["k"]} of {r["n"]} runs</div>')
-    if k.get("reason"):
-        rows.append(f'<div class="sub">{esc(k["label"])}: {esc(k["reason"])}</div>')
-    if k.get("E") is not None and not st:
-        rows.append(_bar("E (causal share)", k["E"],
-                         "Drop rate of the claim when all cited spans are removed"))
-    if k.get("F") is not None:
-        rows.append(_bar("F (faithfulness)", k["F"],
-                         "Share of cited spans whose removal changes the claim"))
-    for s in k.get("removals", []):
-        outs = ", ".join(sorted(set(s.get("outcomes", [])))) or (
-            "claim survives" if s["survived"] else "claim drops")
-        cites = f' (answer cites {esc(", ".join(s["new_cites"]))})' if s.get("new_cites") else ""
-        rows.append(f'<div class="sub">remove {esc(s["span"])}: {esc(outs)}{cites}</div>')
-    if k.get("plant"):
-        p = k["plant"]
-        cls = {"follows": "ok", "abstains": "ok", "overrides and cites": "bad",
-               "overrides without citing": "warn"}.get(p["outcome"], "muted")
-        rows.append(f'<div style="margin-top:6px">Planted <b>{esc(p["original"])}</b> &rarr; '
-                    f'<b>{esc(p["planted"])}</b>: <span class="chip {cls}">'
-                    f'{esc(p["outcome"])}</span></div>')
-    return f'<div class="causal"><b>Causal replay</b>{"".join(rows)}</div>'
-
 
 ALIBI_STYLE = {"supported": ("ok", "Alibi: supported"),
                "partly supported": ("warn", "Alibi: partly supported"),
@@ -953,135 +743,6 @@ def alibi_2x2(claims):
     return cells
 
 
-def _alibi_table(claims):
-    if not claims:
-        return ""
-    cells = alibi_2x2(claims)
-    n_phantom = sum(1 for c in claims if c.get("alibi") == "phantom")
-    n_replay = sum(1 for c in claims if jenga_use(c)[1] == "replay")
-
-    def td(row, col):
-        cls, name = QUADRANTS[(row, col)]
-        ids = ", ".join(c["id"] for c in cells[(row, col)]) or "&ndash;"
-        return (f'<td><span class="chip {cls}">{esc(name)}</span>'
-                f'<div class="n">{len(cells[(row, col)])}</div>'
-                f'<div class="sub">{esc(ids) if cells[(row, col)] else ids}</div></td>')
-    src = ("replay label where available, else static timing" if n_replay
-           else "static timing signal (no replay run)")
-    return f"""<h2>Alibi &times; Jenga</h2>
-<div class="card"><table class="a2x2">
-<tr><th></th><th>Jenga: used<div class="sub">evidence came first</div></th>
-<th>Jenga: not used<div class="sub">answer came first</div></th></tr>
-<tr><th>Alibi: supported<div class="sub">cited lines were shown and carry the claim</div></th>
-{td("supported", "used")}{td("supported", "not used")}</tr>
-<tr><th>Alibi: not supported<div class="sub">partly supported, no citation, weak citation{f", or phantom ({n_phantom})" if n_phantom else ", or phantom"}</div></th>
-{td("unsupported", "used")}{td("unsupported", "not used")}</tr>
-</table>
-<div class="sub" style="margin-top:8px">Alibi asks "was it there?"; Jenga asks "did it use it?".
-Jenga axis from the {esc(src)}. Both are proxies: static signals are lexical.</div></div>"""
-
-
-def _alibi_chip(c):
-    if "alibi" not in c:
-        return ""
-    cls, name = ALIBI_STYLE[c["alibi"]]
-    return f'<span class="chip {cls}">{esc(name)}</span>'
-
-
-def _claim_card(c):
-    cls, name = VERDICT_STYLE.get(c["verdict"], ("muted", c["verdict"]))
-    if c.get("causal") and c["causal"].get("label"):
-        lab = c["causal"]["label"]
-        cls = "bad" if lab == "post-rationalised" else "ok" if lab == "faithful" else cls
-        name = f"{name} · replay: {lab}"
-    cites = ", ".join(sorted({f'P{x["page"]}-L{x["line"]}' for x in c["cited_lines"]},
-                             key=lambda s: tuple(int(n) for n in re.findall(r"\d+", s))))
-    tclass = {"cited": "t-cited", "elsewhere in sources": "t-else", "not in any source": "t-none"}
-    terms = "".join(f'<span class="term {tclass[t["support"]]}" title="{esc(t["support"])}">'
-                    f'{esc(t["term"])}{" ⏱" if t["asserted_before_seen"] else ""}</span>'
-                    for t in c["terms"]) or '<span class="sub">no specific terms</span>'
-    ded = "".join(f"<li>{'&minus;' + str(d['points']) + ': ' if d['points'] else ''}"
-                  f"{esc(d['reason'])}</li>" for d in c["deductions"])
-    lines = "\n".join(f'P{x["page"]}-L{x["line"]} [{x["role"]}; {x["status"]}] {x["text"]}'
-                      for x in c["cited_lines"])
-    return f"""
-<div class="card claim">
-  <div>{_tower(c)}</div>
-  <div>
-    <div class="chips"><span class="chip {cls}">{esc(name)}</span>
-      {_alibi_chip(c)}
-      <span class="chip muted">score {c['score']}</span>
-      <span class="chip muted">{esc(cites or 'no citation')}</span></div>
-    <div class="ctext">{esc(c['text'])}</div>
-    <div class="chips" style="margin-bottom:8px">{terms}</div>
-    {_bar("Evidence share (E_lex)", c["E_lex"], "Share of the claim's specific terms found in the cited lines")}
-    {_bar("Citation precision", c["precision"], "Share of cited lines that contribute any claim term")}
-    {f'<ul class="ded">{ded}</ul>' if ded else '<div class="sub" style="margin-top:6px">No issues found.</div>'}
-    {_causal_html(c)}
-    <details><summary>Cited lines</summary><pre>{esc(lines or '(none)')}</pre></details>
-  </div>
-</div>"""
-
-
-def _run_section(rep, n_runs, embedded=False):
-    counts = "".join(f'<span class="chip {VERDICT_STYLE.get(v, ("muted",))[0]}">{k} '
-                     f'{esc(VERDICT_STYLE.get(v, (None, v))[1])}</span>'
-                     for v, k in sorted(rep["verdict_counts"].items()))
-    notes = "".join(f"<li>{esc(n)}</li>" for n in rep["notes"])
-    title = f'<h2>Run {esc(rep["run_id"])}{" · " + esc(rep["label"]) if rep.get("label") else ""}</h2>' if n_runs > 1 else ""
-    hero = "" if embedded else f"""<div class="card hero">
-  <div>{_donut(rep['trust_score'])}</div>
-  <div>
-    <div class="sub">Question · {esc(rep['model'] or 'unknown model')} · {len(rep['claims'])} claims</div>
-    <div class="q">{esc(rep['question'])}</div>
-    <div class="chips">{counts}</div>
-  </div>
-</div>"""
-    final = "" if embedded else f"""<h2>Final answer as given</h2>
-<div class="card"><pre>{esc(rep['answer'])}</pre></div>"""
-    return f"""
-{title}
-{hero}
-<h2>How the agent got there</h2>
-<div class="card">{_timeline(rep)}</div>
-<h2>Claims: pull each block, see if the tower stands</h2>
-<div class="legend">
-  <span><i class="sw" style="background:var(--acc)"></i>load-bearing line (only source of a claim term)</span>
-  <span><i class="sw" style="background:var(--acc2)"></i>supporting (term also in another cited line)</span>
-  <span><i class="sw" style="background:var(--dead)"></i>dead weight (cited, supplies nothing)</span>
-  <span><i class="sw" style="border:2px dashed var(--bad)"></i>phantom (never shown to agent)</span>
-</div>
-<div class="legend">
-  <span><span class="term t-cited">term</span> in cited lines</span>
-  <span><span class="term t-else">term</span> only elsewhere in sources</span>
-  <span><span class="term t-none">term</span> in no source (model prior)</span>
-  <span>⏱ written by the agent before any evidence contained it</span>
-</div>
-{''.join(_claim_card(c) for c in rep['claims'])}
-{_alibi_table(rep['claims'])}
-{final}
-<ul class="notes">{notes}</ul>
-"""
-
-
-def render_html(reports, title="Jenga evidence report", embedded=False):
-    """Self-contained report page. embedded=True drops the title, score card
-    and answer (for showing inside the web app, which renders those itself)."""
-    if isinstance(reports, dict):
-        reports = [reports]
-    head = "" if embedded else (
-        f"<h1>{esc(title)}</h1>\n<div class=\"sub\">Post-rationalisation check: does each "
-        "citation carry its claim, and did the agent use it?</div>")
-    body = "".join(_run_section(r, len(reports), embedded) for r in reports) or \
-        '<div class="card">No completed runs found in this log.</div>'
-    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{esc(title)}</title><style>{CSS}</style></head><body><div class="wrap{' embedded' if embedded else ''}">
-{head}
-{body}
-</div></body></html>"""
-
-
 # ============================================================
 # 6. OUTPUT FILES (project interface: claims.jsonl, jenga.jsonl, report.json)
 # ============================================================
@@ -1107,8 +768,7 @@ def write_outputs(reports, out_dir):
                                      "causal": c["causal"]}, ensure_ascii=False) + "\n")
     with open(out / "report.json", "w", encoding="utf-8") as f:
         json.dump(reports, f, ensure_ascii=False, indent=2)
-    (out / "infographic.html").write_text(render_html(reports), encoding="utf-8")
-    return out / "infographic.html"
+    return out
 
 
 def main(argv=None):
@@ -1131,7 +791,7 @@ def main(argv=None):
                   f"{c['text'][:60]}")
             for d in c["deductions"]:
                 print(f"         -{d['points']}: {d['reason']}")
-    print(f"\nInfographic: {path}")
+    print(f"\nOutputs: {path}")
 
 
 if __name__ == "__main__":

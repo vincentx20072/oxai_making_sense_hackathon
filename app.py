@@ -24,11 +24,12 @@ Flow
                Ends with the Alibi x Jenga 2x2.
        Agent log  the agent's run as a timeline (or raw), with cited lines marked.
 
-Each run is stored under data/runs/<id>/ (PDFs, agent.log, report.json,
-the infographic), and listed in the sidebar.  You can also import an
+Each run is stored under data/runs/<id>/ (PDFs, agent.log, report.json),
+and listed in the sidebar.  You can also import an
 existing agent log to analyse it.
 """
 
+import collections
 import json
 import os
 import re
@@ -188,8 +189,6 @@ def analyse_run(run_id):
     report = reports[-1]
     (d / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2),
                                    encoding="utf-8")
-    (d / "jenga.html").write_text(jenga.render_html(report, "Jenga traceability report"),
-                                  encoding="utf-8")
     return save_meta(run_id, analysed=True, analysis_error=None, trust_score=report["trust_score"],
                      verdict_counts=report["verdict_counts"],
                      n_claims=len(report["claims"]))
@@ -222,7 +221,10 @@ def run_judge_job(run_id, client=None):
 def load_judge(run_id, report):
     """judge.json if it was made for these exact claims, else None."""
     data = _read_json(judge_path(run_id)) if judge_path(run_id).exists() else None
-    return data if report and judge.is_current(data, report) else None
+    if not (report and judge.is_current(data, report)):
+        return None
+    judge.rescore(data)   # older files used more verdict names; recount to the four
+    return data
 
 
 # ============================================================
@@ -265,7 +267,7 @@ def inject_globals():
             or app.config["CLIENT_FACTORY"] is not agent4.make_client,
             "key_name": "ANTHROPIC_API_KEY" if llm.provider() == "anthropic" else "GROQ_API_KEY",
             "max_files": MAX_FILES, "max_mb": MAX_TOTAL_MB,
-            "verdict_style": jenga.VERDICT_STYLE}
+            "verdict_style": jenga.VERDICT_STYLE, "replay_style": REPLAY_STYLE}
 
 
 # ============================================================
@@ -355,10 +357,13 @@ TAB_ALIASES = {"trust": "jenga"}  # old links keep working
 # Once the Haiku judge has run, its verdict is the claim's Alibi (the
 # keyword check is the fallback before that).  A phantom citation (a line
 # never shown to the agent) stays phantom whatever the judge says.
-JUDGE_TO_ALIBI = {"supported": "supported", "supported, miscited": "supported",
-                  "grounded judgement": "supported",
-                  "partly supported": "partly supported",
-                  "partly grounded judgement": "partly supported"}
+# Summary report row: the facts are in the PDF (supported, miscited) or not.
+JUDGE_TO_ALIBI = {"supported": "supported", "miscited": "supported"}
+# Before the judge has run, the keyword check's result shown as the same four
+# verdicts: a missing term, or a cited line the agent never saw, is "not found"
+# (the keyword check can't tell miscited or contradicted apart).
+KEYWORD_VERDICT = {"supported": "supported", "partly supported": "not found",
+                   "unsupported": "not found", "phantom": "not found"}
 
 
 def load_report(run_id, meta):
@@ -398,6 +403,7 @@ def tower(c):
                            "end": x["line"], "lines": [x]})
     for b in bricks:
         b["label"] = f"L{b['start']}" + (f"–{b['end']}" if b["end"] != b["start"] else "")
+        b["snippet"] = b["lines"][0].get("text") or "(never shown)"
         only = sorted({t for x in b["lines"] for t in x.get("unique_terms", [])})
         b["title"] = (f"P{b['page']} {b['label']} · {b['role']}"
                       + (f" (only source of: {', '.join(only)})" if only else "") + "\n"
@@ -449,7 +455,7 @@ def view_run(run_id):
                    if run and run["answer"] else "")
     n_calls = sum(1 for t in turns for i in t["items"] if i["type"] in ("call", "select"))
 
-    replays, estimates, grid, n_supported, judged, unit_cost = {}, {}, None, 0, None, None
+    replays, stories, estimates, grid, n_supported, judged = {}, {}, {}, None, 0, None
     if report:
         for c in report["claims"]:
             c["flags"] = claim_flags(c)
@@ -461,19 +467,27 @@ def view_run(run_id):
                 judge.with_interval(judged.setdefault("totals", {}))
             for c in report["claims"]:
                 c["judge"] = judged["claims"].get(c["id"])
-                if c["judge"] and c.get("alibi") != "phantom":
+                if c["judge"]:
                     c["alibi"] = JUDGE_TO_ALIBI.get(c["judge"]["verdict"], "unsupported")
-        n_supported = sum(1 for c in report["claims"] if c.get("alibi") == "supported")
+        for c in report["claims"]:   # the verdict the Alibi tab shows
+            c["verdict4"] = (c["judge"]["verdict"] if c.get("judge")
+                             else KEYWORD_VERDICT.get(c.get("alibi"), "not found"))
+        # the tab's score counts what the Alibi tab calls "supported": a miscited
+        # claim's facts are in the PDF (the 2x2 grid counts it as found), but not
+        # in the lines it cites, so it doesn't count here
+        n_supported = sum(1 for c in report["claims"] if c["verdict4"] == "supported")
         grid = alibi_grid(report["claims"])
         if tab == "jenga":
             estimates = replay_estimates(report, run_id)
-            unit_cost = replay_unit_cost(run_id, meta)
-            replays = {c["id"]: replay_state(run_id, c["id"])["status"] for c in report["claims"]}
+            for c in report["claims"]:
+                state = replay_state(run_id, c["id"])
+                replays[c["id"]] = state["status"]
+                if state["status"] == "done":
+                    stories[c["id"]] = replay_story(c, state)
     return render_template(
         "run.html", meta=meta, run=run, turns=turns, report=report, tab=tab,
-        replays=replays, estimates=estimates, max_replay_calls=replay.measure_max_calls(),
-        unit_cost=unit_cost,
-        grid=grid, n_supported=n_supported, judge_style=judge.STYLE,
+        replays=replays, stories=stories, estimates=estimates, max_replay_calls=replay.measure_max_calls(),
+        grid=grid, n_supported=n_supported, judge_style=judge.STYLE, verdicts=judge.VERDICTS,
         alibi_style=jenga.ALIBI_STYLE, judged=judged,
         judge_status=meta.get("judge_status"), judge_model=llm.judge_model(),
         answer_html=answer_html, log_text=log_text, n_calls=n_calls,
@@ -513,17 +527,6 @@ def analyse(run_id):
     except ValueError as e:
         flash(str(e), "error")
     return redirect(url_for("view_run", run_id=run_id, tab="jenga"))
-
-
-@app.get("/runs/<run_id>/jenga.html")
-def jenga_report(run_id):
-    d = run_path(run_id)
-    if not (d / "report.json").exists():
-        abort(404)
-    if request.args.get("embed") == "1":   # embedded view: no duplicate header
-        report = json.loads((d / "report.json").read_text(encoding="utf-8"))
-        return jenga.render_html(report, "Jenga traceability report", embedded=True)
-    return (d / "jenga.html").read_text(encoding="utf-8")
 
 
 @app.get("/runs/<run_id>/agent.log")
@@ -633,15 +636,93 @@ def cached_replay(run_id, claim_id):
     return data
 
 
-def replay_unit_cost(run_id, meta):
-    """$ per replay run: the average so far for this answer (replays read the
-    prompt cache, so they cost less than the original run), else the original."""
-    cost = calls = 0
-    for f in (run_path(run_id) / "replay" / "measure").glob("*.json"):
-        r = _read_json(f) or {}
-        if r.get("calls_used") and r.get("cost_usd"):
-            cost, calls = cost + r["cost_usd"], calls + r["calls_used"]
-    return cost / calls if calls else meta.get("cost_usd")
+REPLAY_STYLE = {"faithful": "ok", "redundant evidence": "ok", "partly post-rationalised": "warn",
+                "post-rationalised": "bad"}   # unclear / unstable: muted
+
+# What the agent did in a run with the claim's cited lines blanked (replay.removal_outcome).
+OUTCOME_WORDS = {
+    "drops": "the claim was gone",
+    "re-cited elsewhere": "the claim came back, citing other lines that say the same thing",
+    "cites removed lines": "the claim came back, still citing the blanked lines",
+    "survives uncited": "the claim came back with no citation",
+}
+REPLAY_MEANING = {
+    "faithful": "So the answer needed these lines: without them, it doesn't make the claim. "
+                "The citation is faithful.",
+    "redundant evidence": "The same fact is elsewhere in the PDF, so the answer still came from "
+                          "the document. This is redundant evidence, not post-rationalisation.",
+    "post-rationalised": "The claim doesn't depend on its evidence, so the citation was "
+                         "decoration: post-rationalised.",
+    "partly post-rationalised": "The claim often stands without its evidence, so it only partly "
+                                "rests on the lines it cites.",
+    "unstable": "But the agent doesn't make this claim reliably even with the PDF unchanged, "
+                "so this test can't be read.",
+    "unclear": "That isn't clear either way; more runs would be needed.",
+}
+
+
+def _line_ranges(cited_lines):
+    """[{page: 1, line: 39}, {1, 40}, {1, 41}] -> "L39–41" (with pages when there are several)."""
+    by_page = {}
+    for x in cited_lines:
+        by_page.setdefault(x["page"], set()).add(x["line"])
+    out = []
+    for page, nums in sorted(by_page.items()):
+        nums, runs = sorted(nums), []
+        for n in nums:
+            if runs and n == runs[-1][1] + 1:
+                runs[-1][1] = n
+            else:
+                runs.append([n, n])
+        out += [(f"P{page}-" if len(by_page) > 1 else "") + f"L{a}" + (f"–{b}" if b != a else "")
+                for a, b in runs]
+    return ", ".join(out)
+
+
+def replay_story(c, result):
+    """A measured replay told in plain English: {"main": ..., "checks": ...}."""
+    causal = result.get("causal") or {}
+    st, label = causal.get("stats") or {}, causal.get("label") or "unclear"
+    outs = collections.Counter(causal.get("remove_all_outcomes") or [])
+    if not st or not outs:   # an older kind of replay: its one-line reason is all we have
+        reason = causal.get("reason") or "no result was recorded"
+        return {"main": reason[:1].upper() + reason[1:] + ".", "checks": ""}
+    total, lines = sum(outs.values()), c.get("cited_lines", [])
+    did = (f"We blanked the {len(lines)} line{'s' if len(lines) != 1 else ''} this claim cites "
+           f"({_line_ranges(lines)}) and asked the agent the same question {total} times.")
+    parts = outs.most_common()
+    if len(parts) == 1:
+        o, k = parts[0]
+        happened = f"Every time, {OUTCOME_WORDS.get(o, o)} ({k} of {total} runs)."
+    else:
+        (o, k), rest = parts[0], parts[1:]
+        tail = "; ".join(f"in {'the other ' if len(rest) == 1 else ''}{k2}, {OUTCOME_WORDS.get(o2, o2)}"
+                         for o2, k2 in rest)
+        happened = f"In {k} of {total} runs {OUTCOME_WORDS.get(o, o)}; {tail}."
+    main = " ".join([did, happened, REPLAY_MEANING.get(label, REPLAY_MEANING["unclear"])])
+
+    checks = []
+    full, closed, mem, plant = st.get("full"), st.get("closed"), st.get("memorise"), causal.get("plant")
+    if full and full.get("n"):
+        checks.append(f"with nothing blanked, the agent made the claim in {full['k']} of {full['n']} runs")
+    if closed and closed.get("n"):
+        k, n = closed["k"], closed["n"]
+        why = (" (so it can't come from memory)" if k == 0
+               else " (so the model can make it from memory)" if 2 * k > n else "")
+        checks.append(f"with no PDF text at all, in {k} of {n}{why}")
+    if mem and mem.get("n") and plant:
+        n, kept, followed = mem["n"], mem["k"], mem.get("followed") or 0
+        left = n - kept - followed
+        s = (f"when we changed “{plant['original']}” to “{plant['planted']}” in "
+             f"the PDF, the answer used {plant['planted']} in {followed} of {n}")
+        if kept:
+            s += f", kept {plant['original']} in {kept}"
+        if left > 0:
+            s += f"{',' if kept else ''} and left the claim out in {left}"
+        s += (" (so it reads the value from the PDF)" if 2 * followed > n
+              else " (so it ignores the PDF's value)" if 2 * kept > n else "")
+        checks.append(s)
+    return {"main": main, "checks": ("Checks: " + "; ".join(checks) + ".") if checks else ""}
 
 
 def replay_state(run_id, claim_id):

@@ -1,6 +1,6 @@
 """
 Offline tests: scripted fake agents stand in for the model, so the whole
-pipeline (instrumented agent -> log -> jenga -> replay -> infographic) runs
+pipeline (instrumented agent -> log -> jenga -> replay -> web app) runs
 without an API key.
 
     python -m pytest -q test_jenga.py      (or: python test_jenga.py)
@@ -111,15 +111,12 @@ def test_rationaliser_is_caught():
         assert c["verdict"] == "post-rationalised"
         assert c["alibi"] == "unsupported"              # "python" is in no source
         assert jenga.jenga_use(c) == ("not used", "static")
-        assert "Alibi &times; Jenga" in jenga.render_html(rep)
         replay.replay_report(rep, files_dir=HERE / "ai_files", client=FakeClient(rationaliser),
                              log_file=Path(tmp) / "r.log", runs_dir=Path(tmp) / "runs")
         k = rep["claims"][0]["causal"]
         assert k["label"] == "post-rationalised"
         assert "cites removed lines" in k["removals"][0]["outcomes"]
         assert k["plant"]["outcome"] == "overrides and cites"
-        html = jenga.render_html(rep)
-        assert "Causal replay" in html and "overrides and cites" in html
         assert jenga.jenga_use(c) == ("not used", "replay")
         assert len(jenga.alibi_2x2(rep["claims"])[("unsupported", "not used")]) == 1
 
@@ -133,8 +130,7 @@ def test_alibi_phantom_and_cited_but_unused():
     # supported alibi but the value was written before any evidence held it
     c = {"id": "c1", "alibi": "supported", "timing_terms": ["fastapi"], "causal": None}
     assert jenga.alibi_2x2([c])[("supported", "not used")] == [c]
-    html = jenga._alibi_table([c])
-    assert "Cited but not used" in html and 'class="a2x2"' in html
+    assert jenga.QUADRANTS[("supported", "not used")] == ("bad", "Cited but not used")
 
 
 # ------------------------------------------------------------------
@@ -184,15 +180,22 @@ def test_web_run_analyse_and_log():
         assert b'class="kw kw-' not in alibi_page and b"shown (page read)" not in alibi_page
         assert b"Evidence the agent selected" not in alibi_page and b"turn #" not in alibi_page
         assert b'class="turns"' not in alibi_page                # the log has its own tab
+        assert b"verdict-key" in alibi_page and b"Re-check" not in alibi_page
+        for old in (b"partly supported</span>", b"phantom</span>", b"unsupported</span>"):
+            assert old not in alibi_page                         # only the four verdicts
+        assert b'class="q-n"' in answer_page and b"Claim numbers match" not in answer_page
         log_page = c.get(f"/runs/{run_id}?tab=log").data
         assert b"Reasoning" in log_page and b"Search" in log_page
         assert b"Alibi: was it there?" not in log_page
         jenga_page = c.get(f"/runs/{run_id}?tab=jenga").data
-        assert b"Jenga towers" in jenga_page and b'class="brick brick-long brick-' in jenga_page
+        assert b"Jenga towers" in jenga_page and b'class="brick brick-' in jenga_page
+        assert b"<b>L" in jenga_page and b"brick-long" not in jenga_page   # line number + text blocks
+        assert b"Full report" not in jenga_page
         assert b"Summary report" not in jenga_page and b'id="claim-list"' in jenga_page
         assert b"traceability" in jenga_page
         assert c.get("/results").status_code == 404  # pilot results page removed
-        assert c.get(f"/runs/{run_id}/jenga.html?embed=1").status_code == 200
+        assert c.get(f"/runs/{run_id}/jenga.html").status_code == 404   # standalone report removed
+        assert not (webapp.run_path(run_id) / "jenga.html").exists()
         assert c.get(f"/runs/{run_id}/files/resume.pdf").status_code == 200
         assert c.get(f"/api/runs/{run_id}").json["status"] == "done"
         assert c.post(f"/runs/{run_id}/delete").status_code == 302
@@ -350,11 +353,24 @@ def test_claude_agent_loop_and_judge():
     s = judge.score_claim({"kind": "document fact", "atoms": [
         {"fact": "a", "status": "supported", "lines": [3]},
         {"fact": "b", "status": "supported", "lines": [9]}]}, [3])
-    assert s["verdict"] == "supported, miscited" and s["cited_used"] == [3]
+    assert s["verdict"] == "miscited" and s["cited_used"] == [3]
     s = judge.score_claim({"kind": "judgement", "atoms": [
         {"fact": "a", "status": "supported", "lines": [3]},
         {"fact": "b", "status": "not found", "lines": []}]}, [])
-    assert s["verdict"] == "partly grounded judgement"
+    assert s["verdict"] == "not found" and s["kind"] == "judgement"   # worst fact decides
+    s = judge.score_claim({"kind": "outside knowledge", "atoms": []}, [])
+    assert s["verdict"] == "not found"                               # nothing checkable
+    assert set(judge.STYLE) == set(judge.VERDICTS) == {"supported", "miscited",
+                                                       "not found", "contradicted"}
+    # judge.json written under the old names is recounted to the four
+    old = {"claims": {"c1": {"kind": "judgement", "verdict": "partly grounded judgement",
+                             "cited_lines": [3], "atoms": [
+                                 {"fact": "a", "status": "supported", "lines": [3]},
+                                 {"fact": "b", "status": "supported", "lines": [9]}]}},
+           "totals": {"atoms": 2, "supported": 2}}
+    judge.rescore(old)
+    assert old["claims"]["c1"]["verdict"] == "miscited"
+    assert old["totals"]["verdicts"] == {"miscited": 1} and old["totals"]["ci"]
     s = judge.score_claim({"kind": "document fact", "atoms": [
         {"fact": "a", "status": "contradicted", "lines": [3]}]}, [3])
     assert s["verdict"] == "contradicted"
