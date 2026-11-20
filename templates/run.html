@@ -68,7 +68,7 @@
   <a class="tab {% if tab=='alibi' %}is-active{% endif %}" href="?tab=alibi">{{ icon('search') }} Alibi
     {% if report and n_claims %}<span class="score-pill {{ ((100 * n_supported / n_claims)|int)|band }}" title="{{ n_supported }} of {{ n_claims }} claims supported">{{ n_supported }}/{{ n_claims }}</span>{% endif %}</a>
   <a class="tab {% if tab=='jenga' %}is-active{% endif %}" href="?tab=jenga">{{ icon('blocks') }} Jenga
-    {% if meta.analysed %}<span class="score-pill {{ meta.trust_score|band }}" title="Answer traceability: how well the answer traces back to the PDFs (not a rating of the documents)">{{ meta.trust_score if meta.trust_score is not none else '–' }}</span>{% endif %}</a>
+    {% if meta.analysed %}<span class="score-pill {{ meta.trust_score|band }}" title="Answer traceability: how well the answer traces back to the PDFs (not a rating of the documents)">{{ meta.trust_score }}</span>{% endif %}</a>
   <a class="tab {% if tab=='log' %}is-active{% endif %}" href="?tab=log">{{ icon('list') }} Agent log <span class="count">{{ n_calls }}</span></a>
 </nav>
 {% if meta.analysis_error and not report %}<div class="flash flash-error">{{ icon('alert') }} <span>{{ meta.analysis_error }}</span></div>{% endif %}
@@ -85,18 +85,18 @@
 {% if report and grid %}
 <section class="card section">
   <h2 class="card-title">Summary report</h2>
-  <p class="muted small lede">Every claim placed by its two checks, in order. Alibi: was the evidence there? Only claims that pass go on to Jenga: did the answer depend on it?
+  <p class="muted small lede">Every claim placed by its two checks. Alibi: was the evidence there? Jenga: did the answer depend on it?
     The cell to worry about is <b>cited but not used</b>: real citations the answer didn't depend on.</p>
   <div class="tbl-wrap">
   <table class="a2x2">
     <tr><th></th>
       <th>Jenga: used<div class="sub">evidence came first</div></th>
       <th>Jenga: not used<div class="sub">answer came first</div></th></tr>
-    {% for row, rlabel, rsub in [('supported', 'Alibi: passed', 'the facts are in the cited lines, so Jenga tests it'),
-                                 ('unsupported', 'Not tested by Jenga', 'failed Alibi (partly supported, not found, phantom) or cites no lines')] %}
+    {% for row, rlabel, rsub in [('supported', 'Alibi: supported', 'the facts are in the lines the agent was shown'),
+                                 ('unsupported', 'Alibi: not supported', 'partly supported, not found, no citation, or a phantom')] %}
     <tr><th>{{ rlabel }}<div class="sub">{{ rsub }}</div></th>
-      {% for col, cell in grid[row].items() %}
-      <td class="{% if cell.claims %}q-on{% endif %}"{% if grid[row]|length == 1 %} colspan="2"{% endif %}><span class="chip {{ cell.cls }}">{{ cell.name }}</span>
+      {% for col in ('used', 'not used') %}{% set cell = grid[row][col] %}
+      <td class="{% if cell.claims %}q-on{% endif %}"><span class="chip {{ cell.cls }}">{{ cell.name }}</span>
         <div class="q-n">{{ cell.claims|length }}</div>
         <div class="sub">{% for c in cell.claims %}{{ c.id }}{{ ', ' if not loop.last }}{% else %}–{% endfor %}</div></td>
       {% endfor %}
@@ -272,26 +272,24 @@
   {% if report %}
   <section class="card jsum">
     <div class="jsum-ring">
-      <svg width="112" height="112" viewBox="0 0 150 150" role="img" aria-label="Answer traceability {{ stage.score if stage.score is not none else 'not available' }} out of 100">
+      <svg width="112" height="112" viewBox="0 0 150 150" role="img" aria-label="Answer traceability {{ report.trust_score }} out of 100">
         <circle cx="75" cy="75" r="58" fill="none" stroke="var(--muted-bg)" stroke-width="13"/>
-        <circle cx="75" cy="75" r="58" fill="none" stroke="var(--{{ stage.score|band }})" stroke-width="13" stroke-linecap="round"
-          stroke-dasharray="{{ '%.1f'|format(364.4 * (stage.score or 0) / 100) }} 364.4" transform="rotate(-90 75 75)"/>
-        <text x="75" y="88" text-anchor="middle" font-size="40" font-weight="700" fill="var(--ink)">{{ stage.score if stage.score is not none else '–' }}</text>
+        <circle cx="75" cy="75" r="58" fill="none" stroke="var(--{{ report.trust_score|band }})" stroke-width="13" stroke-linecap="round"
+          stroke-dasharray="{{ '%.1f'|format(364.4 * (report.trust_score or 0) / 100) }} 364.4" transform="rotate(-90 75 75)"/>
+        <text x="75" y="88" text-anchor="middle" font-size="40" font-weight="700" fill="var(--ink)">{{ report.trust_score }}</text>
       </svg>
       <div class="jsum-cap">traceability</div>
     </div>
     <div class="jsum-body">
       <h2 class="card-title">{{ icon('blocks') }} Jenga: did it use it?</h2>
       <p class="lede">
-        {% if stage.score is none %}No claim passed Alibi with a citation, so there is nothing for Jenga to test.
-        {% elif stage.score >= 75 %}The claims Jenga tested are carried by the lines they cite.
-        {% elif stage.score >= 45 %}Some tested claims lean on the model's own knowledge or on lines outside their citation.
-        {% else %}Several tested citations don't carry their claims. Treat this answer as unverified.{% endif %}
-        <span class="muted small">Jenga tested {{ stage.passed|length }} of {{ report.claims|length }} claims: the cited ones that passed Alibi.</span>
+        {% if report.trust_score >= 75 %}Most claims are carried by the lines they cite.
+        {% elif report.trust_score >= 45 %}Some claims lean on the model's own knowledge or on lines outside their citation.
+        {% else %}Several citations don't carry their claims. Treat this answer as unverified.{% endif %}
         <span class="muted small">The score rates how well the answer traces back to the PDFs, not the documents themselves.</span>
       </p>
       <div class="chips">
-        {% for v, n in stage.verdict_counts.items() %}
+        {% for v, n in report.verdict_counts.items() %}
         <span class="chip {{ verdict_style.get(v, ('muted', v))[0] }}">{{ n }} {{ verdict_style.get(v, ('', v))[1]|lower }}</span>
         {% endfor %}
       </div>
@@ -319,7 +317,7 @@
     <div class="tbl-wrap">
     <table class="ctbl jtbl" id="claim-list" data-run="{{ meta.id }}" data-max-calls="{{ max_replay_calls }}">
       <thead><tr><th>#</th><th>Claim</th><th>Tower</th><th>Verdict</th></tr></thead>
-      {% for c in stage.passed %}
+      {% for c in report.claims %}
       {% set vs = verdict_style.get(c.verdict, ('muted', c.verdict)) %}
       {% set est = estimates.get(c.id, 0) %}
       {% set rstate = replays.get(c.id, 'none') %}
@@ -364,17 +362,6 @@
       {% endfor %}
     </table>
     </div>
-    {% if stage.failed %}
-    <details class="skipped">
-      <summary>{{ stage.failed|length }} claim{{ '' if stage.failed|length == 1 else 's' }} not tested by Jenga</summary>
-      <ul>
-        {% for c in stage.failed %}
-        <li><span class="c-id">{{ c.id }}</span> {{ c.text }} <span class="muted small">· {{ not_tested_reason(c) }}</span></li>
-        {% endfor %}
-      </ul>
-      <p class="muted small">Jenga asks whether the answer used its evidence, which only makes sense once Alibi has shown the evidence is there. See the <a href="?tab=alibi">Alibi</a> tab.</p>
-    </details>
-    {% endif %}
   </section>
 
   {% elif meta.status == 'done' %}

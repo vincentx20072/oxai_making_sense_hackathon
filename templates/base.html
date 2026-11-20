@@ -27,7 +27,7 @@
         <span class="hist-meta">
           {% if h.status in ('queued', 'running') %}<span class="dot dot-run"></span> running
           {% elif h.status == 'error' %}<span class="dot dot-bad"></span> failed
-          {% elif h.analysed %}<span class="score-pill {{ h.trust_score|band }}" title="Answer traceability: how well the answer traces back to the PDFs (not a rating of the documents)">{{ h.trust_score if h.trust_score is not none else '–' }}</span>
+          {% elif h.analysed %}<span class="score-pill {{ h.trust_score|band }}" title="Answer traceability: how well the answer traces back to the PDFs (not a rating of the documents)">{{ h.trust_score }}</span>
           {% else %}<span class="dot"></span> not checked{% endif %}
           · {{ h.created|ago }}{% if h.source == 'import' %} · imported{% endif %}
         </span>

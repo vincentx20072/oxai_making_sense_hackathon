@@ -641,7 +641,7 @@ def analyse_claim(claim, run, seen, q_terms, steps, subject=frozenset(), kind="f
 
 
 # Bump when the analysis changes; the web app re-analyses older reports.
-REPORT_VERSION = 8
+REPORT_VERSION = 7
 
 
 def analyse_run(run):
@@ -660,7 +660,10 @@ def analyse_run(run):
     claims = [analyse_claim(c, run, seen, q_terms, steps, subject, kind)
               for c in split_claims(run["answer"], default_file)]
 
-    stage = jenga_stage(claims)
+    verdicts = {}
+    for c in claims:
+        verdicts[c["verdict"]] = verdicts.get(c["verdict"], 0) + 1
+    trust = round(sum(c["score"] for c in claims) / len(claims)) if claims else None
 
     # term first-appearance for the timeline
     term_marks = {}
@@ -687,41 +690,9 @@ def analyse_run(run):
         "steps": steps, "term_marks": term_marks,
         "selected_evidence": [{k: s[k] for k in ("file", "page", "start", "end", "purpose")}
                               for s in run["selected"]],
-        "claims": claims, "verdict_counts": stage["verdict_counts"],
-        "trust_score": stage["score"], "n_jenga": len(stage["passed"]),
+        "claims": claims, "verdict_counts": verdicts, "trust_score": trust,
         "trace_has_agent_text": run["has_agent_text"], "notes": notes,
     }
-
-
-def passes_alibi(c):
-    """Jenga only tests claims whose evidence was there: "did it use it?" is
-    moot for a claim whose facts the cited lines don't hold."""
-    return c.get("alibi") == "supported"
-
-
-def jenga_testable(c):
-    """Jenga tests a claim that passed Alibi and cites lines (an uncited
-    claim, such as a closing verdict, has no block to pull)."""
-    return passes_alibi(c) and bool(c.get("citations"))
-
-
-def not_tested_reason(c):
-    if not passes_alibi(c):
-        return "failed Alibi"
-    return "cites no lines"
-
-
-def jenga_stage(claims):
-    """The Jenga stage of the pipeline: the claims it tests, the ones it
-    doesn't, and the traceability score and verdict counts over the tested
-    claims only (None when there are none)."""
-    passed = [c for c in claims if jenga_testable(c)]
-    counts = {}
-    for c in passed:
-        counts[c["verdict"]] = counts.get(c["verdict"], 0) + 1
-    return {"passed": passed, "failed": [c for c in claims if not jenga_testable(c)],
-            "score": round(sum(c["score"] for c in passed) / len(passed)) if passed else None,
-            "verdict_counts": counts}
 
 
 def analyse_log_text(text):
@@ -793,8 +764,8 @@ table.a2x2{width:100%;border-collapse:collapse;font-size:13.5px}
 
 
 def _donut(score, size=150):
-    label = "–" if score is None else score
-    score = score or 0
+    if score is None:
+        score = 0
     r, c = 58, 2 * math.pi * 58
     cls = "ok" if score >= 75 else "warn" if score >= 45 else "bad"
     return (f'<svg width="{size}" height="{size}" viewBox="0 0 150 150" role="img" '
@@ -804,7 +775,7 @@ def _donut(score, size=150):
             f'stroke-linecap="round" stroke-dasharray="{c * score / 100:.1f} {c:.1f}" '
             f'transform="rotate(-90 75 75)"/>'
             f'<text x="75" y="80" text-anchor="middle" font-size="34" font-weight="700" '
-            f'fill="var(--ink)">{label}</text>'
+            f'fill="var(--ink)">{score}</text>'
             f'<text x="75" y="102" text-anchor="middle" font-size="11" fill="var(--sub)">'
             f'traceability / 100</text></svg>')
 
@@ -954,20 +925,18 @@ def jenga_use(c):
 QUADRANTS = {
     ("supported", "used"): ("ok", "Faithful citation"),
     ("supported", "not used"): ("bad", "Cited but not used"),
-    ("unsupported", "not tested"): ("muted", "Not tested by Jenga"),
+    ("unsupported", "used"): ("warn", "Used but mis-cited"),
+    ("unsupported", "not used"): ("bad", "Unsupported and unused"),
 }
 
 
 def alibi_2x2(claims):
-    """Place claims in the Summary report.  Claims that passed Alibi are split
-    by Jenga (used / not used); the rest (partly supported, unsupported,
-    phantom) are not tested by Jenga and share one cell."""
+    """Count claims into Alibi (supported / not) x Jenga (used / not used).
+    Partly supported and phantom alibis count on the 'unsupported' row."""
     cells = {k: [] for k in QUADRANTS}
     for c in claims:
-        if jenga_testable(c):
-            cells[("supported", jenga_use(c)[0])].append(c)
-        else:
-            cells[("unsupported", "not tested")].append(c)
+        a = c.get("alibi", "unsupported")
+        cells[("supported" if a == "supported" else "unsupported", jenga_use(c)[0])].append(c)
     return cells
 
 
@@ -992,8 +961,8 @@ def _alibi_table(claims):
 <th>Jenga: not used<div class="sub">answer came first</div></th></tr>
 <tr><th>Alibi: supported<div class="sub">cited lines were shown and carry the claim</div></th>
 {td("supported", "used")}{td("supported", "not used")}</tr>
-<tr><th>Not tested by Jenga<div class="sub">failed Alibi (partly supported, weak citation{f", phantom ({n_phantom})" if n_phantom else ", phantom"}), or cites no lines</div></th>
-{td("unsupported", "not tested").replace("<td>", '<td colspan="2">', 1)}</tr>
+<tr><th>Alibi: not supported<div class="sub">partly supported, no citation, weak citation{f", or phantom ({n_phantom})" if n_phantom else ", or phantom"}</div></th>
+{td("unsupported", "used")}{td("unsupported", "not used")}</tr>
 </table>
 <div class="sub" style="margin-top:8px">Alibi asks "was it there?"; Jenga asks "did it use it?".
 Jenga axis from the {esc(src)}. Both are proxies: static signals are lexical.</div></div>"""
@@ -1008,8 +977,6 @@ def _alibi_chip(c):
 
 def _claim_card(c):
     cls, name = VERDICT_STYLE.get(c["verdict"], ("muted", c["verdict"]))
-    if "alibi" in c and not jenga_testable(c):
-        cls, name = "muted", f"not tested by Jenga ({not_tested_reason(c)})"
     if c.get("causal") and c["causal"].get("label"):
         lab = c["causal"]["label"]
         cls = "bad" if lab == "post-rationalised" else "ok" if lab == "faithful" else cls
