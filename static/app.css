@@ -171,18 +171,7 @@ form.inline{display:inline}
 .rp-busy{display:flex;gap:12px;align-items:center;font-size:14px;color:var(--sub)}
 .rp-error{color:var(--bad);font-size:14px}
 .rp-head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px}
-.rp-label{font-weight:700;font-size:14px;border-radius:8px;padding:3px 10px}
-.rp-label.muted{color:var(--muted);background:var(--muted-bg)}
 .rp-why{flex:1 1 260px;font-size:13.5px;color:var(--sub)}
-.rp-facts{list-style:none;margin:0 0 12px;padding:0;display:flex;flex-direction:column;gap:5px;font-size:13.5px}
-.rp-facts del{color:var(--bad);text-decoration-thickness:2px}
-.rp-facts ins{color:var(--ok);text-decoration:none;font-weight:600}
-.rp-examples-title{font-size:12px;font-weight:600;color:var(--sub);margin:14px 0 6px}
-.rp-answers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-@media (max-width:720px){.rp-answers{grid-template-columns:1fr}}
-.rp-col{border:1px solid var(--line);border-radius:10px;background:var(--card);min-width:0;display:flex;flex-direction:column}
-.rp-col.rp-before{background:var(--soft)}
-.rp-col-title{font-size:12px;font-weight:600;color:var(--sub);padding:8px 11px 0}
 .rp-text{font-size:13px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;padding:6px 11px 10px;max-height:280px;overflow:auto}
 .rp-text mark{border-radius:4px;padding:0 2px}
 /* the value the test is about (the original, or the planted one), one neutral highlight */
@@ -195,26 +184,35 @@ mark.rp-mark{background:color-mix(in srgb,var(--acc) 22%,transparent);color:inhe
 .ci-mid{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--sub);z-index:1}
 .ci-wrap{display:block;margin:6px 0 4px;max-width:420px}
 .ci-bar-wide{width:100%;height:12px;border-radius:6px}
-.ci-scale{position:relative;display:block;height:14px;font-size:11px;margin-top:2px}
-.ci-scale span{position:absolute;transform:translateX(-50%)}
-.ci-scale span:nth-child(1){left:0;transform:none}
-.ci-scale span:nth-child(2){left:20%}
-.ci-scale span:nth-child(3){left:50%}
-.ci-scale span:nth-child(4){right:0;transform:none}
-.rp-measure{margin:2px 0 8px}
 .rp-s{font-size:14px}
 .ci-wrap[title]{cursor:help}
 
-/* The replay told in words, in its own row under the claim it measured.
-   One accent only: the left rule takes the verdict's colour. */
+/* A replayed claim: the overall result in one line, then one card per test
+   (a paragraph, a number line, an example answer), two to a row.  Neutral
+   cards; the only colour is the result chip and the number line's blue. */
 .story-row td{padding-top:0}
 .story-tag{display:block;margin-top:3px;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em}
-.replay-story{border-left:3px solid var(--line);background:var(--soft);border-radius:0 8px 8px 0;
-  padding:10px 14px;font-size:13.5px;line-height:1.55;max-width:900px}
-.replay-story p{margin:0}
-.replay-story .story-checks{margin-top:6px;color:var(--sub)}
-.story-ok{border-left-color:var(--ok)}.story-warn{border-left-color:var(--warn)}.story-bad{border-left-color:var(--bad)}
-.was-verdict{margin-top:5px;color:var(--sub)}
+.story-row .rp-head{margin:0 0 10px}
+.test-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (max-width:900px){.test-grid{grid-template-columns:1fr}}
+.test-card{min-width:0;border:1px solid var(--line);border-radius:10px;background:var(--soft);padding:12px 14px;
+  font-size:13.5px;line-height:1.55}
+.test-card p{margin:0}
+.test-title{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:13.5px;font-weight:600}
+.test-n{display:inline-grid;place-items:center;flex:none;width:20px;height:20px;border-radius:50%;
+  background:var(--muted-bg);color:var(--sub);font-size:11.5px}
+.test-example summary{cursor:pointer;color:var(--sub);font-size:12.5px;margin-top:10px}
+.test-example .rp-text{margin-top:6px;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+.numline{margin:10px 0 2px}
+.numline .rp-s{font-size:13px}
+.numline .ci-wrap{max-width:none;margin-bottom:0}
+.nl-scale{position:relative;display:block;height:14px;font-size:11px;margin-top:2px}
+.nl-scale span{position:absolute;transform:translateX(-50%)}
+.nl-scale span:first-child{transform:none}
+.nl-scale span:last-child{transform:translateX(-100%)}
+.ci-zones{position:relative;display:block;height:15px;font-size:10.5px;color:var(--sub);margin-top:1px}
+.ci-zones span{position:absolute;text-align:center;white-space:nowrap;font-style:italic}
+.test-card .numline-note{margin-top:6px;font-size:12.5px;color:var(--sub)}
 .ci{color:var(--sub);cursor:help;border-bottom:1px dotted var(--sub)}
 @media (max-width:640px){.ci-bar{width:80px}}
 

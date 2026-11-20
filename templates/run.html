@@ -57,6 +57,24 @@
 </section>
 {% endif %}
 
+{# One test's number line: the rate as a dot, its 95% interval shaded, the test's
+   zones labelled underneath.  l = app._numline(...) #}
+{% macro numline(l) -%}
+<div class="numline">
+  <div class="rp-s">{{ l.what }} in <b>{{ l.k }} of {{ l.n }} runs</b>
+    <span class="muted">· 95% interval {{ '%.0f'|format(l.lo) }}%–{{ '%.0f'|format(l.hi) }}%</span></div>
+  <span class="ci-wrap">
+    <span class="ci-bar ci-bar-wide">
+      {% for x in l.ticks %}<span class="ci-mid" style="left:{{ x }}%"></span>{% endfor %}
+      <span class="ci-range" style="left:{{ '%.1f'|format(l.lo) }}%;width:{{ '%.1f'|format([l.hi - l.lo, 1]|max) }}%"></span>
+      <span class="ci-dot" style="left:{{ '%.1f'|format(l.p) }}%"></span>
+    </span>
+    <span class="nl-scale muted"><span style="left:0%">0%</span>{% for x in l.ticks %}<span style="left:{{ x }}%">{{ x }}%</span>{% endfor %}<span style="left:100%">100%</span></span>
+    <span class="ci-zones">{% for name, a, b in l.zones %}<span style="left:{{ a }}%;width:{{ b - a }}%">{{ name }}</span>{% endfor %}</span>
+  </span>
+</div>
+{%- endmacro %}
+
 {% macro analyse_form(label='Run the check', cls='btn-primary') -%}
 <form method="post" action="{{ url_for('analyse', run_id=meta.id) }}" class="inline"><button class="btn {{ cls }}" type="submit">{{ label }}</button></form>
 {%- endmacro %}
@@ -314,7 +332,6 @@
       {% set vs = verdict_style.get(c.verdict, ('muted', c.verdict)) %}
       {% set est, worst = estimates.get(c.id, (0, 0)) %}
       {% set rstate = replays.get(c.id, 'none') %}
-      {% set lab = (c.causal or {}).get('label') %}
       <tbody class="claim" data-claim="{{ c.id }}" data-state="{{ rstate }}">
         <tr>
           <td class="c-id">{{ c.id }}</td>
@@ -333,18 +350,14 @@
             {% else %}<div class="tower-none muted small">no citation:<br>nothing holds it up</div>{% endif %}
           </td>
           <td class="c-verdict">
-            {% if lab %}
-            {# measured: the replay's result is the verdict; the log check it replaced is a footnote #}
-            <span class="chip {{ replay_style.get(lab, 'muted') }}">{{ lab|capitalize }}</span>
-            <div class="was-verdict small">Before the replay: {{ vs[1]|lower }}</div>
-            {% else %}
             <span class="chip {{ vs[0] }}">{{ vs[1] }}</span>
-            {% endif %}
-            {# grounded claims aren't offered a pull; one measured before still shows its replay #}
-            {% if est and worst <= max_replay_calls and (c.verdict != 'grounded' or rstate == 'done') %}
+            {# a replayed claim shows its tests in the row below; grounded claims aren't offered a pull #}
+            {% if rstate != 'done' and c.verdict != 'grounded' %}
+            {% if est and worst <= max_replay_calls %}
             <button type="button" class="btn small pull-btn" data-claim="{{ c.id }}" data-est="{{ est }}"
-              aria-controls="rp-{{ c.id }}">{{ icon('blocks') }} <span class="pull-label">{% if rstate == 'done' %}Show details{% else %}Pull the block{% endif %}</span></button>
-            {% elif est and c.verdict != 'grounded' %}<div class="pull-cost small">Too many reruns to measure (over the cap of {{ max_replay_calls }})</div>
+              aria-controls="rp-{{ c.id }}">{{ icon('blocks') }} <span class="pull-label">Pull the block</span></button>
+            {% elif est %}<div class="pull-cost small">Too many reruns to measure (over the cap of {{ max_replay_calls }})</div>
+            {% endif %}
             {% endif %}
           </td>
         </tr>
@@ -352,10 +365,24 @@
         {% if story %}
         <tr class="story-row">
           <td class="c-id">{{ c.id }}<span class="story-tag">replay</span></td>
-          <td colspan="3"><div class="replay-story story-{{ replay_style.get(lab, 'muted') }}">
-            <p>{{ story.main }}</p>
-            {% if story.checks %}<p class="story-checks">{{ story.checks }}</p>{% endif %}
-          </div></td>
+          <td colspan="3">
+            <div class="rp-head"><span class="chip {{ replay_style.get(story.label, 'muted') }}">{{ story.label|capitalize }}</span>
+              <span class="rp-why">{{ story.headline }}</span></div>
+            {% if story.tests %}
+            <div class="test-grid">
+              {% for t in story.tests %}
+              <section class="test-card">
+                <h4 class="test-title"><span class="test-n">{{ loop.index }}</span>{{ t.title }}</h4>
+                <p>{{ t.text }}</p>
+                {% if t.line %}{{ numline(t.line) }}{% endif %}
+                {% if t.note %}<p class="numline-note">{{ t.note }}</p>{% endif %}
+                {% if t.example %}<details class="test-example"><summary>Example answer</summary><div class="rp-text">{{ t.example }}</div></details>{% endif %}
+              </section>
+              {% endfor %}
+            </div>
+            <p class="muted small rp-foot">The first test runs until its 95% interval is at most 10 points wide (35 to 40 runs); the other three run 5 times each, so their intervals are wide. A behavioural test, not a view of the model's internal reasoning.</p>
+            {% endif %}
+          </td>
         </tr>
         {% endif %}
         <tr class="replay-row" hidden><td colspan="4"><div class="replay-panel" id="rp-{{ c.id }}" aria-live="polite" hidden></div></td></tr>

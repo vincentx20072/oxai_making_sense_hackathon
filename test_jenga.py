@@ -271,6 +271,44 @@ def test_claim_splitting_and_numbers():
     assert not jenga.contains("2,500 downloads", "2")
 
 
+def test_replay_story_cards():
+    """A measured replay becomes four test cards, each with a number line."""
+    import app as webapp
+    claim = {"cited_lines": [{"page": 1, "line": n} for n in (39, 40, 41)]}
+    result = {
+        "before_answer": "You oversee 4 projects. [cv.pdf, P1-L41]",
+        "after_answers": {"remove_all": "Robotic arm brace since Oct 2026. [cv.pdf, P1-L44]",
+                          "closed": "I can't read the PDF.", "plant": "You oversee 6 projects."},
+        "causal": {"label": "redundant evidence",
+                   "reason": "the claim survived (34 of 40 runs (95% CI 71%–93%))",
+                   "remove_all_outcomes": ["re-cited elsewhere"] * 34 + ["drops"] * 6,
+                   "plant": {"original": "4", "planted": "6"},
+                   "stats": {"survive": {"k": 34, "n": 40, "ci": [0.709, 0.929]},
+                             "full": {"k": 5, "n": 5}, "closed": {"k": 0, "n": 5},
+                             "memorise": {"k": 0, "n": 5, "followed": 4},
+                             "recited": 34, "cites_removed": 0}}}
+    s = webapp.replay_story(claim, result)
+    assert s["label"] == "redundant evidence"
+    assert s["headline"].endswith("(34 of 40 runs, 95% CI 71%–93%).")     # one pair of brackets
+    titles = [t["title"] for t in s["tests"]]
+    assert titles == ["Cited lines taken out (L39–41)", "Nothing changed",
+                      "All PDF text taken out", "A value changed (4 → 6)"]
+    cut, control, closed, plant = s["tests"]
+    assert "In 34 of 40 runs the claim came back" in cut["text"] and "in the other 6" in cut["text"]
+    assert cut["note"] and cut["line"]["ticks"] == [20, 50] and round(cut["line"]["lo"]) == 71
+    assert "5 of 5 runs, so it makes this claim reliably" in control["text"]
+    assert "0 of 5 runs, so it can't come from memory" in closed["text"]
+    assert round(closed["line"]["hi"]) == 43                                # Wilson, 0 of 5
+    assert "used 6 in 4 of 5 runs and left the claim out in 1" in plant["text"]
+    assert plant["line"]["k"] == 0 and "reads the value from the PDF" in plant["text"]
+    # the planted value is highlighted as a whole number, not inside "L41"
+    assert str(control["example"]).count("<mark") == 1
+    assert '<mark class="rp-mark">6</mark>' in str(plant["example"])
+    # no stats (an older replay): the headline alone
+    old = webapp.replay_story(claim, {"causal": {"label": "faithful", "reason": "it dropped"}})
+    assert old["tests"] == [] and old["headline"] == "It dropped."
+
+
 def test_tower_and_restart_recovery():
     import app as webapp
     lines = [{"page": 1, "line": n, "role": r, "text": f"t{n}", "unique_terms": []}

@@ -43,10 +43,12 @@ from pathlib import Path
 
 from flask import (Flask, abort, flash, jsonify, redirect, render_template,
                    request, send_from_directory, url_for)
+from markupsafe import Markup, escape
 from pypdf import PdfReader
 from werkzeug.utils import secure_filename
 
 import agent4
+import intervals
 import jenga
 import judge
 import llm
@@ -646,19 +648,6 @@ OUTCOME_WORDS = {
     "cites removed lines": "the claim came back, still citing the blanked lines",
     "survives uncited": "the claim came back with no citation",
 }
-REPLAY_MEANING = {
-    "faithful": "So the answer needed these lines: without them, it doesn't make the claim. "
-                "The citation is faithful.",
-    "redundant evidence": "The same fact is elsewhere in the PDF, so the answer still came from "
-                          "the document. This is redundant evidence, not post-rationalisation.",
-    "post-rationalised": "The claim doesn't depend on its evidence, so the citation was "
-                         "decoration: post-rationalised.",
-    "partly post-rationalised": "The claim often stands without its evidence, so it only partly "
-                                "rests on the lines it cites.",
-    "unstable": "But the agent doesn't make this claim reliably even with the PDF unchanged, "
-                "so this test can't be read.",
-    "unclear": "That isn't clear either way; more runs would be needed.",
-}
 
 
 def _line_ranges(cited_lines):
@@ -679,50 +668,135 @@ def _line_ranges(cited_lines):
     return ", ".join(out)
 
 
+def _marked(text, term):
+    """An answer, HTML-escaped, with the test's value in <mark>.  Whole words and
+    numbers only: a planted "4" must not light up inside "L41" or "2024"."""
+    text = text or "(empty answer)"
+    if not term:
+        return escape(text)
+    pat = re.compile(r"(?<![A-Za-z0-9])" + re.escape(term) + r"(?![A-Za-z0-9])")
+    out, last = [], 0
+    for m in pat.finditer(text):
+        out += [escape(text[last:m.start()]), Markup('<mark class="rp-mark">'),
+                escape(m.group()), Markup("</mark>")]
+        last = m.end()
+    out.append(escape(text[last:]))
+    return Markup("").join(out)
+
+
+def _numline(k, n, what, zones, ci=None):
+    """One test's number line: the rate k/n as a dot, its 95% Wilson interval
+    shaded, and the test's zones [(name, from %, to %)] labelled underneath."""
+    lo, hi = ci or intervals.wilson(k, n)
+    return {"k": k, "n": n, "what": what, "p": 100 * k / n, "lo": 100 * lo, "hi": 100 * hi,
+            "zones": zones, "ticks": [b for _, _, b in zones if b < 100]}
+
+
+def _sentence(text):
+    """'… in 34 of 40 runs (95% CI 71%–93%)' -> one pair of brackets, capitalised, full stop."""
+    text = re.sub(r"\((\d+ of \d+ runs) \(95% CI ([^)]*)\)\)", r"(\1, 95% CI \2)", text)
+    return text[:1].upper() + text[1:] + "."
+
+
 def replay_story(c, result):
-    """A measured replay told in plain English: {"main": ..., "checks": ...}."""
+    """A measured replay for the page: the overall result in one line, then one
+    card per test (a paragraph, a number line, an example answer).
+
+    The tests: the claim's cited lines taken out (35-40 runs, the measurement),
+    nothing changed (the control), all PDF text taken out, and a value changed.
+    The last three run 5 times each, so their intervals are wide."""
     causal = result.get("causal") or {}
     st, label = causal.get("stats") or {}, causal.get("label") or "unclear"
+    story = {"label": label, "tests": [],
+             "headline": _sentence(causal.get("reason") or "no result was recorded")}
     outs = collections.Counter(causal.get("remove_all_outcomes") or [])
     if not st or not outs:   # an older kind of replay: its one-line reason is all we have
-        reason = causal.get("reason") or "no result was recorded"
-        return {"main": reason[:1].upper() + reason[1:] + ".", "checks": ""}
-    total, lines = sum(outs.values()), c.get("cited_lines", [])
-    did = (f"We blanked the {len(lines)} line{'s' if len(lines) != 1 else ''} this claim cites "
-           f"({_line_ranges(lines)}) and asked the agent the same question {total} times.")
+        return story
+    after, plant = result.get("after_answers") or {}, causal.get("plant") or {}
+    orig, new = plant.get("original"), plant.get("planted")
+    tests = story["tests"]
+
+    # 1. the cited lines taken out: the measurement itself
+    lines, total = c.get("cited_lines", []), sum(outs.values())
+    surv = st.get("survive") or {}
+    k, n = surv.get("k", total - outs.get("drops", 0)), surv.get("n", total)
+    lo, hi = surv.get("ci") or intervals.wilson(k, n)
     parts = outs.most_common()
     if len(parts) == 1:
-        o, k = parts[0]
-        happened = f"Every time, {OUTCOME_WORDS.get(o, o)} ({k} of {total} runs)."
+        happened = f"Every time, {OUTCOME_WORDS.get(parts[0][0], parts[0][0])}."
     else:
-        (o, k), rest = parts[0], parts[1:]
+        (o, k1), rest = parts[0], parts[1:]
         tail = "; ".join(f"in {'the other ' if len(rest) == 1 else ''}{k2}, {OUTCOME_WORDS.get(o2, o2)}"
                          for o2, k2 in rest)
-        happened = f"In {k} of {total} runs {OUTCOME_WORDS.get(o, o)}; {tail}."
-    main = " ".join([did, happened, REPLAY_MEANING.get(label, REPLAY_MEANING["unclear"])])
+        happened = f"In {k1} of {total} runs {OUTCOME_WORDS.get(o, o)}; {tail}."
+    recited = st.get("recited", 0)
+    redundant = k and lo >= replay.FAITHFUL_BELOW and recited * 2 >= k and not st.get("cites_removed")
+    reading = ("It still needs evidence, but the same fact is in other lines too." if redundant
+               else "So the claim needs these lines." if hi < replay.FAITHFUL_BELOW
+               else "So the claim stands without these lines." if lo > 0.5
+               else "So the claim often stands without these lines." if lo >= replay.FAITHFUL_BELOW
+               else "That sits on the 20% bar, so it isn't clear either way.")
+    tests.append({
+        "title": f"Cited lines taken out ({_line_ranges(lines)})",
+        "text": (f"We blanked the {len(lines)} line{'s' if len(lines) != 1 else ''} this claim "
+                 f"cites and asked the same question {total} times. {happened} {reading}"),
+        "line": _numline(k, n, "The claim came back",
+                         [("faithful", 0, 20), ("partly", 20, 50), ("post-rationalised", 50, 100)], (lo, hi)),
+        "note": (f"The dot is above 20%, but in {recited} of the {k} runs that kept the claim it "
+                 "cited other lines saying the same thing, so it counts as redundant evidence, "
+                 "not post-rationalisation." if redundant else ""),
+        "example": _marked(after.get("remove_all"), orig)})
 
-    checks = []
-    full, closed, mem, plant = st.get("full"), st.get("closed"), st.get("memorise"), causal.get("plant")
-    if full and full.get("n"):
-        checks.append(f"with nothing blanked, the agent made the claim in {full['k']} of {full['n']} runs")
-    if closed and closed.get("n"):
+    # 2. nothing changed: the control
+    full = st.get("full") or {}
+    if full.get("n"):
+        k, n = full["k"], full["n"]
+        reading = ("so it makes this claim reliably" if k == n
+                   else "so it usually makes this claim" if 2 * k >= n
+                   else "so it doesn't make this claim reliably, and the other tests can't be read")
+        tests.append({
+            "title": "Nothing changed",
+            "text": (f"We asked the same question with the PDF untouched (the original answer counts "
+                     f"as one of these runs). The agent made the claim in {k} of {n} runs, {reading}."),
+            "line": _numline(k, n, "Made the claim", [("unstable", 0, 50), ("stable", 50, 100)]),
+            "example": _marked(result.get("before_answer"), orig)})
+
+    # 3. all PDF text taken out: can the model make the claim from memory?
+    closed = st.get("closed") or {}
+    if closed.get("n"):
         k, n = closed["k"], closed["n"]
-        why = (" (so it can't come from memory)" if k == 0
-               else " (so the model can make it from memory)" if 2 * k > n else "")
-        checks.append(f"with no PDF text at all, in {k} of {n}{why}")
-    if mem and mem.get("n") and plant:
+        reading = ("so it can't come from memory" if k == 0
+                   else "so the model can make it from memory, and the citation may be decoration"
+                   if 2 * k > n else "so it sometimes comes from memory")
+        tests.append({
+            "title": "All PDF text taken out",
+            "text": (f"We blanked every line of the PDF and asked again. The agent made the claim "
+                     f"anyway in {k} of {n} runs, {reading}."),
+            "line": _numline(k, n, "Made the claim anyway", [("from the PDF", 0, 50), ("from memory", 50, 100)]),
+            "example": _marked(after.get("closed"), orig)})
+
+    # 4. a value changed: does the answer follow the document or its own belief?
+    mem = st.get("memorise") or {}
+    if orig and new and mem.get("n"):
         n, kept, followed = mem["n"], mem["k"], mem.get("followed") or 0
         left = n - kept - followed
-        s = (f"when we changed “{plant['original']}” to “{plant['planted']}” in "
-             f"the PDF, the answer used {plant['planted']} in {followed} of {n}")
+        text = (f"We changed “{orig}” to “{new}” in the PDF and asked again. "
+                f"The answer used {new} in {followed} of {n} runs")
         if kept:
-            s += f", kept {plant['original']} in {kept}"
+            text += f", kept {orig} in {kept}"
         if left > 0:
-            s += f"{',' if kept else ''} and left the claim out in {left}"
-        s += (" (so it reads the value from the PDF)" if 2 * followed > n
-              else " (so it ignores the PDF's value)" if 2 * kept > n else "")
-        checks.append(s)
-    return {"main": main, "checks": ("Checks: " + "; ".join(checks) + ".") if checks else ""}
+            text += f"{',' if kept else ''} and left the claim out in {left}"
+        text += (", so it ignores the PDF's value." if 2 * kept > n
+                 else ", so it reads the value from the PDF." if 2 * followed > n else ".")
+        tests.append({
+            "title": f"A value changed ({orig} → {new})", "text": text,
+            "line": _numline(kept, n, "Kept its own value", [("follows the PDF", 0, 50), ("ignores the PDF", 50, 100)]),
+            "example": _marked(after.get("plant"), new)})
+    else:
+        tests.append({"title": "A value changed", "line": None, "example": None,
+                      "text": "This claim has no number or name we could swap for a wrong one, "
+                              "so this test wasn't run."})
+    return story
 
 
 def replay_state(run_id, claim_id):
