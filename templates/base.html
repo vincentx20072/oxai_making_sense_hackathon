@@ -19,7 +19,6 @@
     </a>
     <a class="btn btn-primary btn-block" href="{{ url_for('index') }}">{{ icon('plus') }} New question</a>
     <a class="side-link {% if active == 'import' %}is-active{% endif %}" href="{{ url_for('import_log') }}">{{ icon('upload') }} Analyse an existing log</a>
-    <a class="side-link {% if active == 'results' %}is-active{% endif %}" href="{{ url_for('results') }}">{{ icon('list') }} Pilot results</a>
     <div class="side-label">History</div>
     <nav class="history">
       {% for h in history %}
@@ -28,7 +27,7 @@
         <span class="hist-meta">
           {% if h.status in ('queued', 'running') %}<span class="dot dot-run"></span> running
           {% elif h.status == 'error' %}<span class="dot dot-bad"></span> failed
-          {% elif h.analysed %}<span class="score-pill {{ h.trust_score|band }}">{{ h.trust_score }}</span>
+          {% elif h.analysed %}<span class="score-pill {{ h.trust_score|band }}" title="Answer traceability: how well the answer traces back to the PDFs (not a rating of the documents)">{{ h.trust_score }}</span>
           {% else %}<span class="dot"></span> not checked{% endif %}
           · {{ h.created|ago }}{% if h.source == 'import' %} · imported{% endif %}
         </span>

@@ -82,7 +82,7 @@ function pollRun(id) {
       const r = await fetch("/api/runs/" + id, { cache: "no-store" });
       const s = await r.json();
       if (s.status === "done" || s.status === "error") {
-        location.href = location.pathname + (s.analysed ? "?tab=trust" : "?tab=answer");
+        location.href = location.pathname + (s.analysed ? "?tab=jenga" : "?tab=answer");
         return;
       }
       steps.innerHTML = "";
@@ -104,17 +104,19 @@ function initRunPage() {
   if (ex) ex.addEventListener("change", () => {
     document.querySelectorAll("details.result").forEach((d) => { d.open = ex.checked; });
   });
-  // size the report iframe to its content (same origin)
-  const frame = document.getElementById("report-frame");
-  if (frame) {
-    const fit = () => {
-      try { frame.style.height = frame.contentDocument.documentElement.scrollHeight + 4 + "px"; } catch (e) {}
-    };
-    frame.addEventListener("load", () => { fit(); setTimeout(fit, 300); });
-    window.addEventListener("resize", () => setTimeout(fit, 100));
-  }
   // close the mobile sidebar when navigating
   document.querySelectorAll(".side a").forEach((a) => a.addEventListener("click", () => document.body.classList.remove("side-open")));
+  // the Haiku judge runs in the background: reload when it finishes
+  const jb = document.getElementById("judge-bar");
+  if (jb && jb.dataset.status === "running") {
+    const t = setInterval(async () => {
+      try {
+        const r = await fetch("/api/runs/" + jb.dataset.run, { cache: "no-store" });
+        const s = (await r.json()).judge_status;
+        if (s !== "running") { clearInterval(t); location.reload(); }
+      } catch (e) { /* keep polling */ }
+    }, 3000);
+  }
 }
 
 // ---- colour theme: system / light / dark ----------------------------------
@@ -148,7 +150,7 @@ function applyTheme(choice) {
 })();
 
 
-// ---- "Pull the block": per-claim causal replay on the Trust tab ------------
+// ---- "Pull the block": per-claim causal replay on the Jenga tab ------------
 // POST /runs/<id>/replay starts (or returns the cached) replay of one claim;
 // GET /api/runs/<id>/replay/<claim> is polled until it is done or failed.
 const REPLAY_LABELS = {
@@ -287,8 +289,10 @@ function initReplay(runId) {
       btn.classList.toggle("is-busy", busy);
       if (busy) { li.dataset.state = "running"; label.textContent = "Replaying…"; }
     };
+    const row = panel.closest("tr");          // Jenga table: the panel lives in its own row
     const show = (open) => {
       panel.hidden = !open;
+      if (row) row.hidden = !open;
       btn.setAttribute("aria-expanded", String(open));
     };
     const finish = (r) => {

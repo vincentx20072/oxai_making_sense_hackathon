@@ -37,8 +37,9 @@ import llm
 # CONFIGURATION
 # ============================================================
 
-# Model and client come from llm.py: Groq openai/gpt-oss-120b by default,
-# AGENT_MODEL / AGENT_BASE_URL override.  MODEL is kept for app.py/replay.py.
+# Model and client come from llm.py: Claude Opus 5.5 (effort medium) by
+# default; AGENT_MODEL / AGENT_EFFORT / AGENT_PROVIDER override.  MODEL is kept
+# for app.py/replay.py.
 MODEL = llm.default_model()
 make_client = llm.make_client
 
@@ -74,9 +75,17 @@ SYSTEM_PROMPT = (
     "Do not claim that a PDF contains information "
     "unless that information has actually been "
     "returned to you by one of the tools.\n\n"
-    "In your final answer, put each claim on its own bullet and cite "
-    "the selected evidence at the end of that bullet using references "
-    "such as [filename, P2-L14:L18].\n\n"
+    "FINAL ANSWER FORMAT:\n"
+    "- At most 8 bullets of one or two short sentences each. Each bullet "
+    "makes one point, states the specific facts from the documents behind it "
+    "(names, numbers, dates, tools), and ends with its citation, such as "
+    "[filename, P2-L14:L18].\n"
+    "- Keep any interpretation inside the bullet whose facts it rests on. Do "
+    "not add separate uncited bullets for background, caveats or advice, and "
+    "no headings or preamble.\n"
+    "- If the question asks for an opinion, assessment or recommendation, end "
+    "with one line starting 'Verdict:' (no citation) that answers it in one "
+    "or two sentences.\n\n"
     "Extracted PDF text may not perfectly represent "
     "visual layout, columns, images, charts, or "
     "other graphical content."
@@ -330,6 +339,12 @@ def _fn(name, description, properties=None, required=None):
                        "required": required or [], "additionalProperties": False}}}
 
 
+def claude_tools(specs):
+    """The same tools in Anthropic Messages API form (strict schemas)."""
+    return [{"name": s["function"]["name"], "description": s["function"]["description"],
+             "input_schema": s["function"]["parameters"], "strict": True} for s in specs]
+
+
 _FILE = {"type": "string", "description": "Name of the PDF file."}
 
 TOOL_SPECS = [
@@ -394,6 +409,9 @@ def run_agent(question, *, files_dir=FILES_DIR, hidden_lines=None, plants=None,
             {f: {str(p): sorted(ls) for p, ls in pg.items()}
              for f, pg in hidden_lines.items()}))
 
+    if hasattr(client, "messages"):   # Anthropic SDK client (Claude)
+        return _claude_loop(client, model, question, tools, rec, plants, label)
+
     messages = [{"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": question}]
     kwargs = {"temperature": temperature} if temperature is not None else {}
@@ -440,26 +458,115 @@ def run_agent(question, *, files_dir=FILES_DIR, hidden_lines=None, plants=None,
             continue
 
         # ---- finished ------------------------------------------------
-        answer = content
         rec.step({"tool": None, "arguments": None, "returned_text": None,
                   "agent_text_before": (reasoning + "\n" + content).strip()})
+        return _finish(rec, tools, question, content, plants, label)
+
+    raise RuntimeError("Agent exceeded the maximum number of investigation rounds.")
+
+
+def _finish(rec, tools, question, answer, plants, label, usage=None, model=None):
+    rec.log("")
+    rec.log("EVIDENCE SUMMARY")
+    if tools.selected_evidence:
+        for n, ev in enumerate(tools.selected_evidence, start=1):
+            rec.log(f"EVIDENCE #{n}\nFile: {ev['filename']}\nPage: {ev['page']}\n"
+                    f"Lines: {ev['start_line']}-{ev['end_line']}\n"
+                    f"Purpose: {ev['purpose']}\n{ev['text']}")
+    else:
+        rec.log("(Model selected no evidence.)")
+    cost = llm.cost_usd(model, usage) if usage else None
+    if usage:
+        rec.log(f"USAGE: {json.dumps({**usage, 'cost_usd': cost})}")
+    rec.log("")
+    rec.log(block("FINAL ANSWER:", answer, "FINAL ANSWER"))
+    rec.log("=" * 80)
+    rec.answer({"question": question, "answer": answer,
+                "selected_evidence": tools.selected_evidence,
+                "plants": plants or {}, "label": label, "usage": usage, "cost_usd": cost})
+    return {"run_id": rec.run_id, "question": question, "answer": answer,
+            "selected_evidence": tools.selected_evidence, "log_text": rec.text,
+            "usage": usage, "cost_usd": cost}
+
+
+def _claude_request(client, **params):
+    """One Messages API call.  Server-side refusal fallback is on, so a policy
+    decline is retried on the fallback model inside the same call; the log
+    records which model actually answered (a different model would make the
+    run's behaviour not comparable, so Jenga can flag it)."""
+    if not hasattr(client, "beta"):  # a client without the beta namespace (a test double)
+        return client.messages.create(**params)
+    return client.beta.messages.create(
+        betas=["server-side-fallback-2026-07-01"], fallbacks="default", **params)
+
+
+def _claude_loop(client, model, question, tools, rec, plants, label):
+    """The agent loop on the Anthropic Messages API (Claude).
+
+    Thinking is adaptive with summarised display, so the model's reasoning is
+    logged before each tool call (Jenga's timing signal needs it).  The full
+    assistant content (thinking blocks included) is passed back unchanged."""
+    effort = llm.agent_effort()
+    rec.log(f"EFFORT: {effort}")
+    messages = [{"role": "user", "content": question}]
+    tool_defs = claude_tools(TOOL_SPECS)
+    usage = {}
+
+    for iteration in range(MAX_ITERATIONS):
         rec.log("")
-        rec.log("EVIDENCE SUMMARY")
-        if tools.selected_evidence:
-            for n, ev in enumerate(tools.selected_evidence, start=1):
-                rec.log(f"EVIDENCE #{n}\nFile: {ev['filename']}\nPage: {ev['page']}\n"
-                        f"Lines: {ev['start_line']}-{ev['end_line']}\n"
-                        f"Purpose: {ev['purpose']}\n{ev['text']}")
-        else:
-            rec.log("(Model selected no evidence.)")
-        rec.log("")
-        rec.log(block("FINAL ANSWER:", answer, "FINAL ANSWER"))
-        rec.log("=" * 80)
-        rec.answer({"question": question, "answer": answer,
-                    "selected_evidence": tools.selected_evidence,
-                    "plants": plants or {}, "label": label})
-        return {"run_id": rec.run_id, "question": question, "answer": answer,
-                "selected_evidence": tools.selected_evidence, "log_text": rec.text}
+        rec.log(f"MODEL REQUEST #{iteration + 1}")
+        response = _claude_request(
+            client, model=model, max_tokens=16000, system=SYSTEM_PROMPT,
+            tools=tool_defs, messages=messages,
+            thinking={"type": "adaptive", "display": "summarized"},
+            output_config={"effort": effort},
+            cache_control={"type": "ephemeral"})  # each turn reuses the previous prefix
+        llm.add_usage(usage, response.usage)
+        if getattr(response, "model", model) not in (model, None):
+            rec.log(f"SERVED BY FALLBACK MODEL: {response.model}")
+        if response.stop_reason == "refusal":
+            details = getattr(response, "stop_details", None)
+            raise RuntimeError(f"The model declined the request"
+                               f" ({getattr(details, 'category', None) or 'no category'}).")
+
+        reasoning = "\n\n".join((b.thinking or "").strip() for b in response.content
+                                if b.type == "thinking" and (b.thinking or "").strip())
+        text = "\n\n".join(b.text for b in response.content if b.type == "text").strip()
+        calls = [b for b in response.content if b.type == "tool_use"]
+
+        # The agent's own text, logged before anything it triggers.
+        if reasoning:
+            rec.log(block("MODEL REASONING:", reasoning, "MODEL TEXT"))
+        if text and calls:
+            rec.log(block("MODEL TEXT BEFORE TOOL CALL:", text, "MODEL TEXT"))
+
+        if response.stop_reason == "max_tokens":
+            # a tool call cut off mid-way has incomplete input: never run it
+            raise RuntimeError("The model hit max_tokens before finishing its turn.")
+        if response.stop_reason == "pause_turn":
+            messages.append({"role": "assistant", "content": response.content})
+            continue
+        if calls:
+            messages.append({"role": "assistant", "content": response.content})
+            results = []
+            for call in calls:
+                arguments = dict(call.input or {})
+                rec.log(f"MODEL REQUESTED TOOL: {call.name}("
+                        f"{json.dumps(arguments, ensure_ascii=False)})")
+                result = tools.execute(call.name, arguments)
+                rec.step({"tool": call.name, "arguments": json.dumps(arguments),
+                          "returned_text": result,
+                          "agent_text_before": (reasoning + "\n" + text).strip()})
+                results.append({"type": "tool_result", "tool_use_id": call.id,
+                                "content": result,
+                                **({"is_error": True} if result.startswith("ERROR:") else {})})
+            messages.append({"role": "user", "content": results})  # all results in one turn
+            continue
+
+        # ---- finished ------------------------------------------------
+        rec.step({"tool": None, "arguments": None, "returned_text": None,
+                  "agent_text_before": (reasoning + "\n" + text).strip()})
+        return _finish(rec, tools, question, text, plants, label, usage, model)
 
     raise RuntimeError("Agent exceeded the maximum number of investigation rounds.")
 
@@ -470,7 +577,8 @@ def run_agent(question, *, files_dir=FILES_DIR, hidden_lines=None, plants=None,
 
 if __name__ == "__main__":
     print("\nPDF Evidence Agent (Jenga-instrumented)\n" + "-" * 39)
-    endpoint = os.environ.get("AGENT_BASE_URL") or "Groq"
+    endpoint = os.environ.get("AGENT_BASE_URL") or (
+        "Claude API" if llm.provider() == "anthropic" else "Groq")
     print(f"Model: {MODEL} via {endpoint}\nPDF directory: {FILES_DIR}\nAudit log: {LOG_FILE}\n")
     q = input("Question: ")
     print("\nInvestigating PDFs...\n")

@@ -2,20 +2,24 @@
 Jenga web app: ask questions about PDFs, then check the answer's trust.
 
     pip install -r requirements.txt
-    export GROQ_API_KEY=...
-    python app.py                      # http://localhost:5000
+    echo ANTHROPIC_API_KEY=... > .env  # git-ignored; read by llm.py
+    python app.py                     # http://localhost:5000
 
 Flow
   1. Upload one or more PDFs and write a prompt.  The PDF agent (agent4.py)
      runs in the background; the page shows its steps live.
-  2. Read the answer.  Citations are chips linking to the cited PDF page.
-  3. Run Jenga (automatically or with a button).  This is a static analysis
-     of the log: it makes NO extra model calls.
-  3b. "Pull the block" on one claim reruns the agent with the cited lines
-     blanked and with the claim's value planted (replay.replay_claim).  It is
-     opt-in, per claim, capped at JENGA_REPLAY_MAX_CALLS agent runs, and cached
-     under data/runs/<id>/replay/, so a second click costs nothing.
-  4. Inspect the agent's log as a formatted timeline, or raw.
+  2. The run page has three tabs:
+       Answer  the final answer; citations are chips linking to the PDF page.
+       Alibi   "was it there?": per claim, were the cited lines shown to the
+               agent, and do they hold the claim's keywords.
+       Jenga   "did it use it?": layer 1 is the static analysis of the log
+               (NO extra model calls); layer 2, "Pull the block", reruns the
+               agent with the cited lines blanked and the claim's value
+               planted (replay.replay_claim).  It is opt-in, per claim, capped
+               at JENGA_REPLAY_MAX_CALLS agent runs, and cached under
+               data/runs/<id>/replay/, so a second click costs nothing.
+               Ends with the Alibi x Jenga 2x2.
+       Agent log  the agent's run as a timeline (or raw), with cited lines marked.
 
 Each run is stored under data/runs/<id>/ (PDFs, agent.log, report.json,
 the infographic), and listed in the sidebar.  You can also import an
@@ -40,6 +44,8 @@ from werkzeug.utils import secure_filename
 
 import agent4
 import jenga
+import judge
+import llm
 import replay
 import webview
 
@@ -53,8 +59,6 @@ app.config.update(
     SECRET_KEY=os.environ.get("JENGA_SECRET_KEY") or os.urandom(24),
     MAX_CONTENT_LENGTH=(MAX_TOTAL_MB + 1) * 1024 * 1024,
     DATA_DIR=Path(os.environ.get("JENGA_DATA_DIR", BASE / "data")),
-    # /results reads this EvalSummary; defaults to eval/results.json.
-    RESULTS_PATH=os.environ.get("JENGA_RESULTS_PATH") or None,
     # Replaced in tests with a fake client so no API calls are made.
     CLIENT_FACTORY=agent4.make_client,
 )
@@ -149,17 +153,26 @@ def run_agent_job(run_id):
     t0 = time.time()
     try:
         client = app.config["CLIENT_FACTORY"]()
-        agent4.run_agent(meta["question"], files_dir=d / "files",
-                         log_file=d / "agent.log", runs_dir=d / "trace",
-                         run_id=run_id, client=client)
+        out = agent4.run_agent(meta["question"], files_dir=d / "files",
+                               log_file=d / "agent.log", runs_dir=d / "trace",
+                               run_id=run_id, client=client)
         save_meta(run_id, status="done", finished=now_iso(),
-                  duration=round(time.time() - t0, 1))
-        if meta.get("auto_jenga"):
-            analyse_run(run_id)
+                  duration=round(time.time() - t0, 1),
+                  usage=out.get("usage"), cost_usd=out.get("cost_usd"))
     except Exception as e:  # surface the error on the run page
         save_meta(run_id, status="error", finished=now_iso(),
                   duration=round(time.time() - t0, 1),
                   error=f"{type(e).__name__}: {e}"[:800])
+        return
+    if meta.get("auto_jenga"):
+        # The agent succeeded; a failed check must not mark the run failed.
+        try:
+            analyse_run(run_id)
+        except Exception as e:
+            flash_note = f"Automatic check failed ({type(e).__name__}: {e}); use 'Run the check'."
+            save_meta(run_id, analysis_error=flash_note[:500])
+            return
+        run_judge_job(run_id, client)
 
 
 def analyse_run(run_id):
@@ -172,11 +185,41 @@ def analyse_run(run_id):
     report = reports[-1]
     (d / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2),
                                    encoding="utf-8")
-    (d / "jenga.html").write_text(jenga.render_html(report, "Jenga trust report"),
+    (d / "jenga.html").write_text(jenga.render_html(report, "Jenga traceability report"),
                                   encoding="utf-8")
-    return save_meta(run_id, analysed=True, trust_score=report["trust_score"],
+    return save_meta(run_id, analysed=True, analysis_error=None, trust_score=report["trust_score"],
                      verdict_counts=report["verdict_counts"],
                      n_claims=len(report["claims"]))
+
+
+def judge_path(run_id):
+    return run_path(run_id) / "judge.json"
+
+
+def run_judge_job(run_id, client=None):
+    """Haiku judge over the analysed claims (one API call, ~$0.005).  Needs
+    the Claude API; with any other client it records 'unavailable'."""
+    d = run_path(run_id)
+    try:
+        client = client or app.config["CLIENT_FACTORY"]()
+        if not hasattr(client, "messages"):
+            save_meta(run_id, judge_status="unavailable")
+            return
+        save_meta(run_id, judge_status="running", judge_error=None)
+        run = webview.latest_run((d / "agent.log").read_text(encoding="utf-8"),
+                                 include_incomplete=False)
+        report = json.loads((d / "report.json").read_text(encoding="utf-8"))
+        result = judge.judge_run(run, report, client)
+        _write_json(judge_path(run_id), result)
+        save_meta(run_id, judge_status="done", judge_cost_usd=result["cost_usd"])
+    except Exception as e:  # shown on the Alibi tab
+        save_meta(run_id, judge_status="error", judge_error=f"{type(e).__name__}: {e}"[:500])
+
+
+def load_judge(run_id, report):
+    """judge.json if it was made for these exact claims, else None."""
+    data = _read_json(judge_path(run_id)) if judge_path(run_id).exists() else None
+    return data if report and judge.is_current(data, report) else None
 
 
 # ============================================================
@@ -215,8 +258,9 @@ def filesize(n):
 @app.context_processor
 def inject_globals():
     return {"history": all_runs(), "model": agent4.MODEL,
-            "has_key": bool(os.environ.get("GROQ_API_KEY"))
+            "has_key": llm.has_credentials()
             or app.config["CLIENT_FACTORY"] is not agent4.make_client,
+            "key_name": "ANTHROPIC_API_KEY" if llm.provider() == "anthropic" else "GROQ_API_KEY",
             "max_files": MAX_FILES, "max_mb": MAX_TOTAL_MB,
             "verdict_style": jenga.VERDICT_STYLE}
 
@@ -302,6 +346,87 @@ def create_run():
     return redirect(url_for("view_run", run_id=run_id))
 
 
+TABS = ("answer", "alibi", "jenga", "log")
+TAB_ALIASES = {"trust": "jenga"}  # old links keep working
+
+# Once the Haiku judge has run, its verdict is the claim's Alibi (the
+# keyword check is the fallback before that).  A phantom citation (a line
+# never shown to the agent) stays phantom whatever the judge says.
+JUDGE_TO_ALIBI = {"supported": "supported", "supported, miscited": "supported",
+                  "grounded judgement": "supported",
+                  "partly supported": "partly supported",
+                  "partly grounded judgement": "partly supported"}
+
+
+def load_report(run_id, meta):
+    """report.json with cached replay labels merged in, or None.
+
+    Reports written by an older analysis are re-analysed once; the static
+    analysis is free (no model calls) and gives the same claim ids."""
+    d = run_path(run_id)
+    if not (meta.get("analysed") and (d / "report.json").exists()):
+        return None
+    report = json.loads((d / "report.json").read_text(encoding="utf-8"))
+    if report.get("jenga_version", 1) < jenga.REPORT_VERSION and (d / "agent.log").exists():
+        try:
+            analyse_run(run_id)
+            report = json.loads((d / "report.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            pass
+    for c in report.get("claims", []):
+        done = cached_replay(run_id, c["id"])
+        if done and done.get("causal"):
+            c["causal"] = done["causal"]
+    return report
+
+
+def tower(c):
+    """A claim's cited lines as Jenga bricks, base first.  Neighbouring lines
+    with the same role merge into one brick, so a 5-line citation of which
+    one line matters reads as two bricks, not five."""
+    bricks = []
+    for x in c.get("cited_lines", []):
+        b = bricks[-1] if bricks else None
+        if b and b["role"] == x["role"] and b["page"] == x["page"] and b["end"] + 1 == x["line"]:
+            b["end"] = x["line"]
+            b["lines"].append(x)
+        else:
+            bricks.append({"role": x["role"], "page": x["page"], "start": x["line"],
+                           "end": x["line"], "lines": [x]})
+    for b in bricks:
+        b["label"] = f"L{b['start']}" + (f"–{b['end']}" if b["end"] != b["start"] else "")
+        only = sorted({t for x in b["lines"] for t in x.get("unique_terms", [])})
+        b["title"] = (f"P{b['page']} {b['label']} · {b['role']}"
+                      + (f" (only source of: {', '.join(only)})" if only else "") + "\n"
+                      + "\n".join(x.get("text") or "(never shown)" for x in b["lines"]))
+    return bricks
+
+
+def claim_flags(c):
+    """Static Jenga signals for one claim, as (band, label, terms) rows."""
+    terms = c.get("terms", [])
+    bridging = set(c.get("bridging_terms", []))
+    prior = [t["term"] for t in terms
+             if t["support"] == "not in any source" and t["term"] not in bridging]
+    outside = [t["term"] for t in terms
+               if t["support"] == "elsewhere in sources" and t["term"] not in bridging]
+    rows = [("bad", "Said before seen", c.get("timing_terms", [])),
+            ("warn", "Question focus not in citation", sorted(bridging)),
+            ("warn", "Not in any PDF (model's own knowledge)", prior),
+            ("muted", "Only outside the cited lines", outside)]
+    return [r for r in rows if r[2]]
+
+
+def alibi_grid(claims):
+    """The Alibi x Jenga 2x2 as {row: {col: {cls, name, claims}}}."""
+    cells = jenga.alibi_2x2(claims)
+    return {row: {col: {"cls": jenga.QUADRANTS[(row, col)][0],
+                        "name": jenga.QUADRANTS[(row, col)][1],
+                        "claims": cells[(row, col)]}
+                  for col in ("used", "not used")}
+            for row in ("supported", "unsupported")}
+
+
 @app.get("/runs/<run_id>")
 def view_run(run_id):
     meta = load_meta(run_id)
@@ -309,23 +434,41 @@ def view_run(run_id):
     log_text = (d / "agent.log").read_text(encoding="utf-8") if (d / "agent.log").exists() else ""
     run = webview.latest_run(log_text)
     turns, _ = webview.build_turns(run)
-    report = None
-    if meta.get("analysed") and (d / "report.json").exists():
-        report = json.loads((d / "report.json").read_text(encoding="utf-8"))
-    tab = request.args.get("tab") or ("trust" if request.args.get("analysed") else "answer")
-    if tab not in ("answer", "trust", "log"):
+    report = load_report(run_id, meta)
+    if report:
+        meta = load_meta(run_id)  # load_report may have re-analysed (new trust score)
+    tab = request.args.get("tab") or ("jenga" if request.args.get("analysed") else "answer")
+    tab = TAB_ALIASES.get(tab, tab)
+    if tab not in TABS:
         tab = "answer"
     linkable = {f["name"] for f in meta.get("files", [])}
     answer_html = (webview.render_answer(run["answer"], run, run_id, linkable)
                    if run and run["answer"] else "")
     n_calls = sum(1 for t in turns for i in t["items"] if i["type"] in ("call", "select"))
-    replays, estimates = {}, {}
-    if report and tab == "trust":
-        estimates = replay_estimates(report)
-        replays = {c["id"]: replay_state(run_id, c["id"])["status"] for c in report["claims"]}
+
+    replays, estimates, grid, n_supported, judged = {}, {}, None, 0, None
+    if report:
+        for c in report["claims"]:
+            c["flags"] = claim_flags(c)
+            c["tower"] = tower(c)
+            c["used"], c["used_source"] = jenga.jenga_use(c)
+        judged = load_judge(run_id, report)
+        if judged:
+            for c in report["claims"]:
+                c["judge"] = judged["claims"].get(c["id"])
+                if c["judge"] and c.get("alibi") != "phantom":
+                    c["alibi"] = JUDGE_TO_ALIBI.get(c["judge"]["verdict"], "unsupported")
+        n_supported = sum(1 for c in report["claims"] if c.get("alibi") == "supported")
+        grid = alibi_grid(report["claims"])
+        if tab == "jenga":
+            estimates = replay_estimates(report)
+            replays = {c["id"]: replay_state(run_id, c["id"])["status"] for c in report["claims"]}
     return render_template(
         "run.html", meta=meta, run=run, turns=turns, report=report, tab=tab,
         replays=replays, estimates=estimates, max_replay_calls=replay.max_calls_default(),
+        grid=grid, n_supported=n_supported, judge_style=judge.STYLE,
+        alibi_style=jenga.ALIBI_STYLE, judged=judged,
+        judge_status=meta.get("judge_status"), judge_model=llm.judge_model(),
         answer_html=answer_html, log_text=log_text, n_calls=n_calls,
         steps=webview.progress(run), thought=webview.last_thought(run), active=run_id)
 
@@ -337,7 +480,19 @@ def run_status(run_id):
     run = webview.latest_run(log.read_text(encoding="utf-8")) if log.exists() else None
     return jsonify({"status": meta["status"], "error": meta.get("error"),
                     "steps": webview.progress(run), "thought": webview.last_thought(run),
-                    "analysed": meta.get("analysed", False)})
+                    "analysed": meta.get("analysed", False),
+                    "judge_status": meta.get("judge_status")})
+
+
+@app.post("/runs/<run_id>/judge")
+def start_judge(run_id):
+    meta = load_meta(run_id)
+    if not meta.get("analysed"):
+        flash("Run the check first.", "error")
+    elif meta.get("judge_status") != "running":
+        save_meta(run_id, judge_status="running", judge_error=None)
+        _executor.submit(run_judge_job, run_id)
+    return redirect(url_for("view_run", run_id=run_id, tab="alibi"))
 
 
 @app.post("/runs/<run_id>/analyse")
@@ -350,7 +505,7 @@ def analyse(run_id):
         analyse_run(run_id)
     except ValueError as e:
         flash(str(e), "error")
-    return redirect(url_for("view_run", run_id=run_id, tab="trust"))
+    return redirect(url_for("view_run", run_id=run_id, tab="jenga"))
 
 
 @app.get("/runs/<run_id>/jenga.html")
@@ -358,9 +513,9 @@ def jenga_report(run_id):
     d = run_path(run_id)
     if not (d / "report.json").exists():
         abort(404)
-    if request.args.get("embed") == "1":   # inside the Trust tab: no duplicate header
+    if request.args.get("embed") == "1":   # embedded view: no duplicate header
         report = json.loads((d / "report.json").read_text(encoding="utf-8"))
-        return jenga.render_html(report, "Jenga trust report", embedded=True)
+        return jenga.render_html(report, "Jenga traceability report", embedded=True)
     return (d / "jenga.html").read_text(encoding="utf-8")
 
 
@@ -408,7 +563,7 @@ def import_log():
               model=last["model"] or "unknown", analysed=False, trust_score=None,
               import_name=secure_filename(f.filename or "agent.log"))
     analyse_run(run_id)
-    return redirect(url_for("view_run", run_id=run_id, tab="trust"))
+    return redirect(url_for("view_run", run_id=run_id, tab="jenga"))
 
 
 @app.post("/api/analyse")
@@ -423,7 +578,7 @@ def api_analyse():
 
 
 # ============================================================
-# Per-claim replay ("Pull the block") and pilot results
+# Per-claim replay ("Pull the block")
 # ============================================================
 
 CLAIM_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
@@ -484,7 +639,7 @@ def replay_state(run_id, claim_id):
 
 
 def replay_estimates(report):
-    """{claim_id: agent runs a default replay would make} for the Trust tab."""
+    """{claim_id: agent runs a default replay would make} for the Jenga tab."""
     return {c["id"]: replay.estimate_calls(report, c["id"], DEFAULT_REPLAY_MODES)
             for c in report.get("claims", [])}
 
@@ -563,59 +718,26 @@ def replay_status(run_id, claim_id):
     return jsonify(state), (404 if state["status"] == "none" else 200)
 
 
-def _num(x):
-    """A float in [0, 1], or None for missing / non-numeric values."""
-    try:
-        return None if x is None else min(1.0, max(0.0, float(x)))
-    except (TypeError, ValueError):
-        return None
-
-
-def _rate_group(name, r):
-    r = r if isinstance(r, dict) else {}
-    k, n = r.get("k"), r.get("n")
-    rate = _num(r.get("rate"))
-    if rate is None and isinstance(k, int) and isinstance(n, int) and n > 0:
-        rate = k / n
-    return {"name": name, "k": k, "n": n, "rate": rate,
-            "lo": _num(r.get("lo")), "hi": _num(r.get("hi"))}
-
-
-def load_results(path):
-    """Read eval/results.json (EvalSummary). Returns (summary, groups, error).
-
-    Tolerates a missing file, invalid JSON and missing keys, so a partial or
-    in-progress real run still renders instead of a 500."""
-    path = Path(path)
-    if not path.exists():
-        return None, [], None
-    try:
-        summary = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(summary, dict):
-            raise ValueError("top level is not an object")
-    except (OSError, ValueError) as e:
-        return None, [], f"Could not read {path.name}: {e}"
-    by_family = summary.get("by_family") if isinstance(summary.get("by_family"), dict) else {}
-    groups = [_rate_group("All", summary.get("overall"))]
-    groups += [_rate_group(f, by_family[f]) for f in sorted(by_family)]
-    rows = summary.get("rows") if isinstance(summary.get("rows"), list) else []
-    summary["rows"] = [r for r in rows if isinstance(r, dict)]
-    return summary, groups, None
-
-
-@app.get("/results")
-def results():
-    path = app.config.get("RESULTS_PATH") or BASE / "eval" / "results.json"
-    summary, groups, error = load_results(path)
-    return render_template("results.html", summary=summary, groups=groups,
-                           error=error, active="results")
-
-
 @app.errorhandler(413)
 def too_large(_):
     flash(f"The upload is larger than {MAX_TOTAL_MB} MB.", "error")
     return redirect(url_for("index"))
 
 
+def recover_interrupted():
+    """Jobs run in this process, so at start-up nothing is running: a run or
+    judge still marked running was cut off by a restart.  Say so instead of
+    showing a spinner forever."""
+    for m in all_runs():
+        if m.get("status") in ("queued", "running"):
+            save_meta(m["id"], status="error", finished=now_iso(),
+                      error="Interrupted: the server restarted while the agent was running. "
+                            "Use 'Ask again with these files' to rerun it.")
+        if m.get("judge_status") == "running":
+            save_meta(m["id"], judge_status="error",
+                      judge_error="Interrupted by a server restart. Check again.")
+
+
 if __name__ == "__main__":
+    recover_interrupted()
     app.run(debug=False, threaded=True)

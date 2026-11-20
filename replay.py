@@ -25,7 +25,7 @@ For every claim in a jenga report:
                       overrides without citing keeps the value, no citation
                       abstains                 claim gone
 
-This needs the source PDFs and a model API key (GROQ_API_KEY), and costs
+This needs the source PDFs and a model API key (ANTHROPIC_API_KEY), and costs
 roughly claims x (spans + 2) x samples agent runs.
 """
 
@@ -433,7 +433,7 @@ def replay_claim(run_id, claim_id, *, modes=("remove_all", "plant"), plant_overr
         import llm
         try:
             client = llm.make_client()
-        except Exception as e:  # e.g. GROQ_API_KEY not set
+        except Exception as e:  # e.g. no API key set
             return fail(f"could not create model client: {type(e).__name__}: {e}"[:400])
         model = model or llm.default_model()
     out_dir = run_dir / "replay"

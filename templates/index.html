@@ -9,7 +9,7 @@
 </header>
 
 {% if not has_key %}
-<div class="flash flash-error">{{ icon('alert') }} <span><code>GROQ_API_KEY</code> is not set on the server, so the agent can't run. Set it and restart the app. You can still <a href="{{ url_for('import_log') }}">analyse an existing log</a>.</span></div>
+<div class="flash flash-error">{{ icon('alert') }} <span><code>{{ key_name }}</code> is not set on the server, so the agent can't run. Put it in the <code>.env</code> file next to app.py and restart the app. You can still <a href="{{ url_for('import_log') }}">analyse an existing log</a>.</span></div>
 {% endif %}
 
 <form class="card form" method="post" action="{{ url_for('create_run') }}" enctype="multipart/form-data" id="run-form">

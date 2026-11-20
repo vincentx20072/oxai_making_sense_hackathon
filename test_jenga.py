@@ -173,12 +173,25 @@ def test_web_run_analyse_and_log():
         meta = _wait_done(webapp, run_id)
         assert meta["status"] == "done", meta
         assert meta["analysed"] and meta["trust_score"] is not None
-        for tab in ("answer", "trust", "log"):
+        for tab in ("answer", "alibi", "jenga", "log", "trust"):  # trust: old link
             page = c.get(f"/runs/{run_id}?tab={tab}")
             assert page.status_code == 200
-        assert b'class="cite"' in c.get(f"/runs/{run_id}?tab=answer").data
+        answer_page = c.get(f"/runs/{run_id}?tab=answer").data
+        assert b'class="cite"' in answer_page and b"Jenga towers" not in answer_page
+        assert b"Summary report" in answer_page and b'class="a2x2"' in answer_page
+        alibi_page = c.get(f"/runs/{run_id}?tab=alibi").data
+        assert b"Alibi: was it there?" in alibi_page
+        assert b'class="kw kw-' not in alibi_page and b"shown (page read)" not in alibi_page
+        assert b"Evidence the agent selected" not in alibi_page and b"turn #" not in alibi_page
+        assert b'class="turns"' not in alibi_page                # the log has its own tab
         log_page = c.get(f"/runs/{run_id}?tab=log").data
         assert b"Reasoning" in log_page and b"Search" in log_page
+        assert b"Alibi: was it there?" not in log_page
+        jenga_page = c.get(f"/runs/{run_id}?tab=jenga").data
+        assert b"Jenga towers" in jenga_page and b'class="brick brick-long brick-' in jenga_page
+        assert b"Summary report" not in jenga_page and b'id="claim-list"' in jenga_page
+        assert b"traceability" in jenga_page
+        assert c.get("/results").status_code == 404  # pilot results page removed
         assert c.get(f"/runs/{run_id}/jenga.html?embed=1").status_code == 200
         assert c.get(f"/runs/{run_id}/files/resume.pdf").status_code == 200
         assert c.get(f"/api/runs/{run_id}").json["status"] == "done"
@@ -201,7 +214,153 @@ def test_web_rejects_non_pdf_and_imports_log():
                    content_type="multipart/form-data")
         assert r.status_code == 302
         run_id = r.headers["Location"].split("/runs/")[1].split("?")[0]
-        assert webapp.load_meta(run_id)["trust_score"] == 83
+        assert webapp.load_meta(run_id)["trust_score"] == 84  # "skills" is wording, not a fact
+
+
+def test_alibi_keywords():
+    # plurals, coined compounds and bullet-start wording
+    assert jenga.contains("Developed a REST API", "apis")
+    assert jenga.contains("using Flask, React and Docker", "flask-react")
+    assert not jenga.contains("using Flask and Docker", "flask-react")
+    terms = jenga.specific_terms("Proficient in Java - Effective teamwork with Spring and AWS", [])
+    assert "proficient" not in terms and "java" in terms and "aws" in terms
+    # "Effective" is generic wording and dropped; a bullet-start word with an
+    # adjective-like ending is "soft": kept only when a source contains it, so a
+    # CV that lists Spring keeps "Spring" and "Conducted ..." doesn't count
+    terms, _, soft = jenga.specific_terms("Effective teamwork. Spring Boot services", [], with_labels=True)
+    assert "effective" not in terms and soft == {"spring"}
+    _, _, soft = jenga.specific_terms("Built with Spring. Spring Boot services", [], with_labels=True)
+    assert soft == set()  # capitalised mid-sentence too: a real name
+    # judgement vs fact questions
+    assert jenga.question_kind("Do you think this person would be a good fit for Palantir?") == "judgement"
+    assert jenga.question_kind("Is this candidate qualified for a backend role?") == "judgement"
+    assert jenga.question_kind(QUESTION) == "fact"
+    assert jenga.question_kind("When was Keble College founded?") == "fact"
+    # the CV run: every keyword is in the cited CV lines; "Palantir" is the
+    # opinion's target, so only the uncited conclusion fails its alibi
+    log = (HERE / "samples" / "cv_palantir_agent.log").read_text(encoding="utf-8")
+    rep = jenga.analyse_log_text(log)[-1]
+    assert rep["question_kind"] == "judgement"
+    alibis = [c["alibi"] for c in rep["claims"]]
+    assert alibis == ["supported"] * 5 + ["unsupported"], alibis
+    c1 = rep["claims"][0]["alibi_terms"]
+    assert {"FastAPI", "PostgreSQL", "APIs", "Flask-React"} <= set(c1["found"])
+    assert c1["missing"] == [] and c1["opinion"] == ["Palantir"]
+
+
+def test_claim_splitting_and_numbers():
+    # one claim per sentence; the bullet's citation covers the sentences before it
+    cl = jenga.split_claims("**Strengths**\n- **Data work.** He built a REST API with FastAPI. "
+                            "That is close to the job [resume.pdf, P1-L9:L13].\n"
+                            "Verdict: a reasonable fit for an entry-level role.")
+    assert [c["text"] for c in cl] == ["He built a REST API with FastAPI",
+                                       "That is close to the job",
+                                       "Verdict: a reasonable fit for an entry-level role"], cl
+    assert [bool(c["citations"]) for c in cl] == [True, True, False]
+    assert cl[0].get("inherited") and not cl[1].get("inherited")
+    # uncited sentences after the last citation stay uncited
+    cl = jenga.split_claims("He knows Python well [resume.pdf, P1-L39]. Overall a decent profile here.")
+    assert [len(c["citations"]) for c in cl] == [1, 0]
+    # contractions and possessives are not terms; round numbers match their K form
+    assert jenga.specific_terms("He'd fit Palantir's team", []) == ["palantir"]
+    assert jenga.contains("gaining 2K+ downloads", "2,000")
+    assert jenga.contains("over 2,000 downloads", "2k+")
+    assert not jenga.contains("2,500 downloads", "2")
+
+
+def test_tower_and_restart_recovery():
+    import app as webapp
+    lines = [{"page": 1, "line": n, "role": r, "text": f"t{n}", "unique_terms": []}
+             for n, r in [(9, "dead weight"), (10, "dead weight"), (11, "load-bearing"),
+                          (12, "dead weight"), (14, "dead weight")]]
+    assert [b["label"] for b in webapp.tower({"cited_lines": lines})] == ["L9–10", "L11", "L12", "L14"]
+    with tempfile.TemporaryDirectory() as tmp:
+        old = webapp.app.config["DATA_DIR"]
+        webapp.app.config["DATA_DIR"] = Path(tmp)
+        try:
+            for rid, meta in [("aaaaaaaaaaaa", {"status": "running"}),
+                              ("bbbbbbbbbbbb", {"status": "done", "judge_status": "running"})]:
+                (Path(tmp) / "runs" / rid).mkdir(parents=True)
+                (Path(tmp) / "runs" / rid / "meta.json").write_text(json.dumps({"id": rid, **meta}))
+            webapp.recover_interrupted()
+            assert webapp.load_meta("aaaaaaaaaaaa")["status"] == "error"
+            assert webapp.load_meta("bbbbbbbbbbbb")["judge_status"] == "error"
+        finally:
+            webapp.app.config["DATA_DIR"] = old
+
+
+class FakeClaude:
+    """Mimics anthropic.Anthropic().messages.create: a scripted agent, and
+    canned JSON for the judge's structured-output call."""
+
+    def __init__(self, judge_json=None):
+        self.messages = self
+        self.requests = []
+        self.judge_json = judge_json
+
+    def create(self, **kw):
+        self.requests.append(kw)
+        usage = NS(input_tokens=100, output_tokens=50, cache_read_input_tokens=0,
+                   cache_creation_input_tokens=0)
+        if "format" in kw.get("output_config", {}):   # the judge
+            return NS(content=[NS(type="text", text=json.dumps(self.judge_json(kw)))],
+                      stop_reason="end_turn", usage=usage, model="claude-haiku-5-5")
+        if len(kw["messages"]) == 1:
+            content = [NS(type="thinking", thinking="I should search for FastAPI."),
+                       NS(type="tool_use", id="tu1", name="search_pdf",
+                          input={"filename": "resume.pdf", "query": "FastAPI"})]
+            return NS(content=content, stop_reason="tool_use", usage=usage, model=kw["model"])
+        return NS(content=[NS(type="text", text="- You built a REST API with FastAPI and "
+                                                "PostgreSQL [resume.pdf, P1-L11]")],
+                  stop_reason="end_turn", usage=usage, model=kw["model"])
+
+
+def test_claude_agent_loop_and_judge():
+    import judge
+    import llm
+
+    def verdicts(kw):  # the judge supports the fact with the line numbered for P1-L11
+        n = re.search(r"#(\d+) \[p1 L11\]", kw["messages"][0]["content"]).group(1)
+        return {"claims": [{"id": "c1", "kind": "document fact", "note": "", "atoms": [
+            {"fact": "Built a REST API with FastAPI", "status": "supported", "lines": [int(n)]},
+            {"fact": "Used PostgreSQL", "status": "supported", "lines": [int(n)]}]}]}
+
+    client = FakeClaude(verdicts)
+    with tempfile.TemporaryDirectory() as tmp:
+        out = agent4.run_agent(QUESTION, files_dir=HERE / "ai_files", client=client,
+                               model="claude-opus-5-5", log_file=Path(tmp) / "a.log",
+                               runs_dir=Path(tmp) / "runs")
+    first, second = client.requests[:2]
+    assert first["output_config"] == {"effort": llm.agent_effort()}
+    assert first["thinking"]["type"] == "adaptive" and first["tools"][0]["strict"] is True
+    # assistant content passed back unchanged, tool results in one user turn
+    assert second["messages"][1]["role"] == "assistant"
+    assert second["messages"][2]["content"][0]["type"] == "tool_result"
+    assert out["usage"]["output_tokens"] == 100 and out["cost_usd"] > 0
+    assert "MODEL REASONING:" in out["log_text"] and "USAGE:" in out["log_text"]
+
+    run = jenga.parse_log(out["log_text"])[-1]
+    rep = jenga.analyse_run(run)
+    assert rep["claims"][0]["alibi"] == "supported"
+    j = judge.judge_run(run, rep, client)
+    c1 = j["claims"]["c1"]
+    assert c1["verdict"] == "supported" and (c1["n_supported"], c1["n_atoms"]) == (2, 2)
+    assert c1["atoms"][0]["refs"] == ["p1 L11"] and judge.is_current(j, rep)
+    # verdicts are counted from the atoms
+    s = judge.score_claim({"kind": "document fact", "atoms": [
+        {"fact": "a", "status": "supported", "lines": [3]},
+        {"fact": "b", "status": "supported", "lines": [9]}]}, [3])
+    assert s["verdict"] == "supported, miscited" and s["cited_used"] == [3]
+    s = judge.score_claim({"kind": "judgement", "atoms": [
+        {"fact": "a", "status": "supported", "lines": [3]},
+        {"fact": "b", "status": "not found", "lines": []}]}, [])
+    assert s["verdict"] == "partly grounded judgement"
+    s = judge.score_claim({"kind": "document fact", "atoms": [
+        {"fact": "a", "status": "contradicted", "lines": [3]}]}, [3])
+    assert s["verdict"] == "contradicted"
+    s = judge.score_claim({"kind": "document fact", "atoms": [   # "doesn't mention X"
+        {"fact": "no mention of clearance", "status": "supported", "lines": []}]}, [])
+    assert s["verdict"] == "supported"
 
 
 if __name__ == "__main__":

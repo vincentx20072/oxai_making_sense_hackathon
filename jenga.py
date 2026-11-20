@@ -175,7 +175,7 @@ FILE_RE = re.compile(r"([\w.\- ]+?\.pdf)", re.I)
 
 def _norm(text):
     return (text.replace("‑", "-").replace("‐", "-").replace("–", "-")
-            .replace("—", " ").replace(" ", " ").replace(" ", " "))
+            .replace("—", " ").replace("’", "'").replace(" ", " ").replace(" ", " "))
 
 
 def parse_citations(text, default_file=None):
@@ -195,24 +195,39 @@ def parse_citations(text, default_file=None):
 
 
 def split_claims(answer, default_file=None):
-    """One claim per bullet / line; split long lines into cited sentences."""
+    """One claim per sentence.
+
+    A citation covers the sentences before it in the same bullet / paragraph:
+    an uncited sentence takes the citations of the next cited sentence on its
+    line (marked "inherited").  Uncited sentences after the last citation stay
+    uncited.  Headings, bold lead-ins and framing lines are skipped."""
     claims = []
     for line in _norm(answer).splitlines():
         line = re.sub(r"^\s*(?:[-*•]|\d+[.)])\s+", "", line).strip()
-        if not line:
+        if not line or line.startswith("#"):
             continue
-        # split a paragraph into sentences, keeping trailing citations attached
-        parts = re.split(r"(?<=[.!?])\s+(?=[A-Z\"“])", line)
-        for part in parts:
+        if re.fullmatch(r"(\*\*|__)[^*_]+\1:?", line):
+            continue  # a bold heading such as "**Gaps**"
+        line_claims = []
+        for part in re.split(r"(?<=[.!?])\s+(?=[A-Z\"“*])|(?<=[.!?]\*\*)\s+", line):
             cites = parse_citations(part, default_file)
             body = CIT_RE.sub("", part)
-            body = re.sub(r"[*_`]{1,3}", "", body).strip(" .;")
-            body = re.sub(r"\s+", " ", body).strip()
+            # markdown emphasis only: keep underscores inside words (file_name.pdf)
+            body = re.sub(r"[*`]{1,3}|(?<!\w)_{1,3}|_{1,3}(?!\w)", "", body).strip(" .;")
+            body = re.sub(r"\s+([.,;:])", r"\1", re.sub(r"\s+", " ", body)).strip()
             if not body:
                 continue
             if not cites and (body.endswith(":") or len(body.split()) < 4):
-                continue  # framing line, not a claim
-            claims.append({"text": body, "raw": part, "citations": cites})
+                continue  # framing line or bold lead-in, not a claim
+            line_claims.append({"text": body, "raw": part, "citations": cites})
+        nxt = []
+        for c in reversed(line_claims):
+            if c["citations"]:
+                nxt = c["citations"]
+            elif nxt:
+                c["citations"] = [dict(x) for x in nxt]
+                c["inherited"] = True
+        claims.extend(line_claims)
     for i, c in enumerate(claims, start=1):
         c["id"] = f"c{i}"
     return claims
@@ -231,6 +246,7 @@ all any both each few more most other some such no nor not only own same so too 
 can will just should now also several ways way using use used uses shows show showing
 demonstrates demonstrate demonstrating listed list known built build building developed
 develop developing experience experiences evidence resume resumes résumé résumés based
+cv cvs curriculum vitae document documents pdf pdfs file files
 give concise answer answers including include includes alongside hands-on hands
 section sections project projects work worked part parts one two first second
 his her hers him himself herself theirs themselves itself conclusion conclusions overall
@@ -242,6 +258,21 @@ clear clearly directly strong strongly further additionally also e.g i.e etc
 
 TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9]*(?:[+#]+|(?:[.\-'][A-Za-z0-9]+)*)|\d+(?:[.,]\d+)*%?K?\+?")
 
+# Descriptive words a summary wraps around the facts ("Proficient in Java",
+# "Familiarity with Docker").  They are capitalised at the start of a bullet,
+# but they are the answer's wording, not something a source should contain.
+GENERIC = set("""
+proficient proficiency familiar familiarity effective effectively extensive extensively
+excellent exceptional skilled skill skills competent competence competency capable ability
+abilities knowledge background mindset initiative expertise expert experienced proven
+demonstrated routinely successfully various multiple diverse broad deep significant key
+important impressive notable modern robust comprehensive familiarised familiarized
+""".split())
+# Word endings of adjectives / abstract nouns; only used for a capitalised
+# word at the start of a phrase, where the capital comes from position alone.
+GENERIC_SUFFIXES = ("ity", "ive", "ent", "ant", "ful", "ness", "ing", "ed", "ly", "ous")
+PHRASE_START = set(".:;!?-–—•*([\"'")
+
 
 def tokens(text):
     return TOKEN_RE.findall(_norm(text))
@@ -252,23 +283,99 @@ def question_terms(question):
                    if t.lower() not in STOP and len(t) > 1})
 
 
-def specific_terms(claim_text, q_terms):
-    """Names, values and technologies in a claim, plus the question focus."""
-    out = []
-    for i, t in enumerate(tokens(claim_text)):
+# A judgement question asks for an opinion about something the documents
+# cannot contain ("would this person be a good fit for Palantir?").  Its focus
+# terms are the opinion's target, not facts the evidence should hold.
+JUDGEMENT_RE = re.compile(
+    r"\b(?:good|great|right|strong|suitable|ideal|best|bad|poor)\s+(?:fit|match|candidate|choice|option|hire)\b"
+    r"|\b(?:do|would) you (?:think|say|recommend|consider)\b"
+    r"|\bshould (?:i|we|they|he|she|this|the)\b"
+    r"|\bis (?:this|it|he|she|they|the \w+) (?:a )?(?:good|worth|suitable|qualified|ready|right)\b"
+    r"|\bhow (?:good|well|strong|suitable|likely)\b"
+    r"|\b(?:recommend|suitab\w*|qualified|worth|assess|evaluate|rate)\b", re.I)
+
+
+def question_kind(question):
+    """'judgement' (asks for an opinion) or 'fact' (asks what the sources say)."""
+    return "judgement" if JUDGEMENT_RE.search(_norm(question or "")) else "fact"
+
+
+def _is_phrase_start(text, start):
+    i = start - 1
+    while i >= 0 and text[i].isspace():
+        i -= 1
+    return i < 0 or text[i] in PHRASE_START
+
+
+def _soft_word(tok, phrase_start):
+    """'Effective', 'Familiarity', 'Conducted' at the start of a bullet: likely
+    capitalised by position only.  Kept as a term only if a source has it
+    (so a real name like 'Spring' still counts)."""
+    return (phrase_start and tok[:1].isupper() and tok[1:].islower()
+            and len(tok) > 4 and tok.lower().endswith(GENERIC_SUFFIXES))
+
+
+def specific_terms(claim_text, q_terms, with_labels=False):
+    """Names, values and technologies in a claim, plus the question focus.
+
+    with_labels=True returns (terms, {term: the claim's spelling}, soft terms)."""
+    text = _norm(claim_text)
+    out, labels, soft = [], {}, set()
+    for m in TOKEN_RE.finditer(text):
+        t = CONTRACTION_RE.sub("", m.group(0))  # "Palantir's" -> "Palantir", "He'd" -> "He"
         low = t.lower()
         if low in STOP or len(t) < 2 and not t.isdigit():
+            continue
+        if low in GENERIC and low not in q_terms:
             continue
         if (any(ch.isupper() for ch in t) or any(ch.isdigit() for ch in t)
                 or low in q_terms or "+" in t or "#" in t):
             if low not in out:
                 out.append(low)
-    return out
+                labels[low] = t
+                if low not in q_terms and _soft_word(t, _is_phrase_start(text, m.start())):
+                    soft.add(low)
+            else:
+                soft.discard(low)  # capitalised mid-sentence too: a real name
+    return (out, labels, soft) if with_labels else out
+
+
+CONTRACTION_RE = re.compile(r"'(?:s|d|ll|re|ve|m|t)$", re.I)
+
+
+def _variants(term):
+    """The term plus its singular ('apis' also matches 'API'); a round number
+    also matches its K form ('2,000' matches '2K')."""
+    num = re.fullmatch(r"(\d{1,3}(?:,\d{3})+|\d+)(\+?)", term)
+    if num:
+        n = int(num.group(1).replace(",", ""))
+        v = [num.group(1), str(n)]
+        if n >= 1000 and n % 1000 == 0:
+            v.append(f"{n // 1000}k")
+        return v
+    kform = re.fullmatch(r"(\d+)k(\+?)", term, re.I)
+    if kform:
+        n = int(kform.group(1)) * 1000
+        return [term.rstrip("+"), str(n), f"{n:,}"]
+    v = [term]
+    if len(term) > 3 and term.endswith("s") and not term.endswith("ss") and term[-2].isalpha():
+        v.append(term[:-1])
+        if term.endswith("es"):
+            v.append(term[:-2])
+    return v
 
 
 def contains(text, term):
-    pat = rf"(?<![\w+#]){re.escape(term)}(?:e?s)?(?![\w+#])"
-    return re.search(pat, _norm(text), re.I) is not None
+    text = _norm(text)
+    alts = "|".join(re.escape(v) for v in _variants(term))
+    if term[:1].isdigit():   # numbers: "2K" matches "2K+", but not "2,500"
+        if re.search(rf"(?<![\w,.])(?:{alts})\+?(?![\w#]|[.,]\d)", text, re.I):
+            return True
+    elif re.search(rf"(?<![\w+#])(?:{alts})(?:e?s)?(?![\w+#])", text, re.I):
+        return True
+    # a compound the answer coined: "Flask-React" is found if Flask and React are
+    parts = [p for p in re.split(r"[-/]", term) if len(p) >= 2]
+    return len(parts) >= 2 and all(contains(text, p) for p in parts)
 
 
 # ============================================================
@@ -343,7 +450,7 @@ def _step_of(steps, idx):
     return best
 
 
-def analyse_claim(claim, run, seen, q_terms, steps, subject=frozenset()):
+def analyse_claim(claim, run, seen, q_terms, steps, subject=frozenset(), kind="fact"):
     files_seen = {k[0] for k in seen}
     default_file = next(iter(files_seen)) if len(files_seen) == 1 else None
     selected = {(s["file"], s["page"], l) for s in run["selected"]
@@ -370,10 +477,13 @@ def analyse_claim(claim, run, seen, q_terms, steps, subject=frozenset()):
                           "text": text, "status": status,
                           "selected": key in selected})
 
-    terms = [t for t in specific_terms(claim["text"], q_terms) if t not in subject]
+    raw, labels, soft = specific_terms(claim["text"], q_terms, with_labels=True)
     cited_text = "\n".join(x["text"] for x in cited)
     other_seen = "\n".join(v["text"] for k, v in seen.items()
                            if k not in {x["key"] for x in cited})
+    # bullet-start wording ("Effective", "Familiarity") counts only if a source has it
+    terms = [t for t in raw if t not in subject
+             and not (t in soft and not contains(cited_text + "\n" + other_seen, t))]
 
     # ---- term support tiers ---------------------------------------------
     term_rows = []
@@ -393,7 +503,8 @@ def analyse_claim(claim, run, seen, q_terms, steps, subject=frozenset()):
                     break
         ev_idx = _first_evidence_idx(run, t)
         early = own_idx is not None and (ev_idx is None or own_idx < ev_idx)
-        term_rows.append({"term": t, "support": where, "in_question": t in q_terms,
+        term_rows.append({"term": t, "label": labels.get(t, t), "support": where,
+                          "in_question": t in q_terms,
                           "first_own_step": _step_of(steps, own_idx),
                           "first_own_source": own_src,
                           "first_evidence_step": _step_of(steps, ev_idx),
@@ -419,14 +530,23 @@ def analyse_claim(claim, run, seen, q_terms, steps, subject=frozenset()):
              if n_terms else None)
     precision = (round(sum(1 for x in cited if x["terms"]) / len(cited), 2)
                  if cited else None)
+    # On a judgement question the question's focus ("Palantir" in "a good fit
+    # for Palantir?") is the opinion's target, which no document holds: not a
+    # missing link.
     bridging = [r["term"] for r in term_rows
-                if r["in_question"] and r["support"] != "cited"]
-    timing = [r["term"] for r in term_rows if r["asserted_before_seen"]]
+                if r["in_question"] and r["support"] != "cited" and kind != "judgement"]
+    # "Said before seen" means the agent wrote a value before the documents
+    # showed it.  A word no document contains (the model's own framing, e.g.
+    # a job title it is assessing against) was never there to be seen early;
+    # it is outside knowledge, counted under `prior`.
+    timing = [r["term"] for r in term_rows
+              if r["asserted_before_seen"] and r["support"] != "not in any source"]
     phantom = [x for x in cited if x["status"] in ("never seen", "selected, never shown")]
     not_selected = [x for x in cited if not x["selected"]]
     outside = [r["term"] for r in term_rows
                if r["support"] == "elsewhere in sources" and r["term"] not in bridging]
-    prior = [r["term"] for r in term_rows if r["support"] == "not in any source"]
+    prior = [r["term"] for r in term_rows if r["support"] == "not in any source"
+             and not (kind == "judgement" and r["in_question"])]
 
     # ---- verdict + transparent score -------------------------------------
     deductions = []
@@ -474,14 +594,37 @@ def analyse_claim(claim, run, seen, q_terms, steps, subject=frozenset()):
         verdict = "grounded"
 
     # ---- Alibi: was it there? (presence only, ignores timing) -------------
-    # phantom:     a cited line was never shown to the agent
-    # supported:   every cited line was shown and the citation carries the claim
-    #              (no bridging, no prior-only terms, effective share >= 0.5)
-    # unsupported: no citation, or the cited lines don't carry the claim
+    # Checks the claim's keywords against the cited lines.  On a judgement
+    # question the question's focus ("Palantir" in "a good fit for Palantir?")
+    # is the opinion's target, not a fact the evidence could hold, so it is
+    # left out.  On a fact question it is the fact asked for, so a citation
+    # without it can't support the claim.
+    #   phantom           a cited line was never shown to the agent
+    #   supported         >= 75% of the keywords are in the cited lines
+    #                     (a keyword just outside the span counts half)
+    #   partly supported  >= 40%
+    #   unsupported       no citation, less than that, or (fact question) the
+    #                     question's focus is missing from the citation
+    fact_rows = [r for r in term_rows if not (kind == "judgement" and r["in_question"])]
+    alibi_terms = {
+        "found": [r["label"] for r in fact_rows if r["support"] == "cited"],
+        "nearby": [r["label"] for r in fact_rows if r["support"] == "elsewhere in sources"],
+        "missing": [r["label"] for r in fact_rows if r["support"] == "not in any source"],
+        "opinion": [r["label"] for r in term_rows if kind == "judgement" and r["in_question"]],
+    }
+    n_fact = len(fact_rows)
+    alibi_share = (round((len(alibi_terms["found"]) + 0.5 * len(alibi_terms["nearby"])) / n_fact, 2)
+                   if n_fact else None)
     if phantom:
         alibi = "phantom"
-    elif claim["citations"] and not (bridging or prior or (e_eff is not None and e_eff < 0.5)):
+    elif not claim["citations"]:
+        alibi = "unsupported"
+    elif kind == "fact" and bridging:
+        alibi = "unsupported"
+    elif alibi_share is None or alibi_share >= 0.75:
         alibi = "supported"
+    elif alibi_share >= 0.4:
+        alibi = "partly supported"
     else:
         alibi = "unsupported"
 
@@ -492,8 +635,13 @@ def analyse_claim(claim, run, seen, q_terms, steps, subject=frozenset()):
         "E_lex": e_lex, "precision": precision, "terms": term_rows,
         "bridging_terms": bridging, "timing_terms": timing,
         "cited_lines": [{k: v for k, v in x.items() if k != "key"} for x in cited],
-        "causal": None, "alibi": alibi,
+        "causal": None, "alibi": alibi, "alibi_terms": alibi_terms,
+        "alibi_share": alibi_share,
     }
+
+
+# Bump when the analysis changes; the web app re-analyses older reports.
+REPORT_VERSION = 7
 
 
 def analyse_run(run):
@@ -502,11 +650,14 @@ def analyse_run(run):
     # The question's subject (e.g. the person a resume is about) usually sits in a
     # document header, not in every cited line; don't treat it as a claim value.
     header = " ".join(v["text"] for (f, p, l), v in seen.items() if p == 1 and l <= 3)
-    subject = frozenset(t for t in q_terms if contains(header, t))
-    steps = _step_labels(run)
     files = sorted({k[0] for k in seen if k[0]})
+    # ...and a file's own name ("Christopher_Lee_CV.pdf") is not a claim value either
+    file_words = {t.lower() for f in files for t in tokens(f.replace("_", " "))}
+    subject = frozenset({t for t in q_terms if contains(header, t)} | file_words)
+    kind = question_kind(run["question"])
+    steps = _step_labels(run)
     default_file = files[0] if len(files) == 1 else None
-    claims = [analyse_claim(c, run, seen, q_terms, steps, subject)
+    claims = [analyse_claim(c, run, seen, q_terms, steps, subject, kind)
               for c in split_claims(run["answer"], default_file)]
 
     verdicts = {}
@@ -534,7 +685,8 @@ def analyse_run(run):
     return {
         "run_id": run["run_id"] or run["started"], "question": run["question"],
         "model": run["model"], "label": run["label"], "answer": run["answer"],
-        "question_terms": q_terms, "files": files,
+        "question_terms": q_terms, "question_kind": kind, "files": files,
+        "jenga_version": REPORT_VERSION,
         "steps": steps, "term_marks": term_marks,
         "selected_evidence": [{k: s[k] for k in ("file", "page", "start", "end", "purpose")}
                               for s in run["selected"]],
@@ -617,7 +769,7 @@ def _donut(score, size=150):
     r, c = 58, 2 * math.pi * 58
     cls = "ok" if score >= 75 else "warn" if score >= 45 else "bad"
     return (f'<svg width="{size}" height="{size}" viewBox="0 0 150 150" role="img" '
-            f'aria-label="Trust score {score} out of 100">'
+            f'aria-label="Answer traceability {score} out of 100">'
             f'<circle cx="75" cy="75" r="{r}" fill="none" stroke="var(--muted-bg)" stroke-width="14"/>'
             f'<circle cx="75" cy="75" r="{r}" fill="none" stroke="var(--{cls})" stroke-width="14" '
             f'stroke-linecap="round" stroke-dasharray="{c * score / 100:.1f} {c:.1f}" '
@@ -625,7 +777,7 @@ def _donut(score, size=150):
             f'<text x="75" y="80" text-anchor="middle" font-size="34" font-weight="700" '
             f'fill="var(--ink)">{score}</text>'
             f'<text x="75" y="102" text-anchor="middle" font-size="11" fill="var(--sub)">'
-            f'trust / 100</text></svg>')
+            f'traceability / 100</text></svg>')
 
 
 def _timeline(rep):
@@ -754,7 +906,8 @@ def _causal_html(c):
 
 
 ALIBI_STYLE = {"supported": ("ok", "Alibi: supported"),
-               "unsupported": ("warn", "Alibi: unsupported"),
+               "partly supported": ("warn", "Alibi: partly supported"),
+               "unsupported": ("bad", "Alibi: unsupported"),
                "phantom": ("bad", "Alibi: phantom")}
 
 
@@ -779,7 +932,7 @@ QUADRANTS = {
 
 def alibi_2x2(claims):
     """Count claims into Alibi (supported / not) x Jenga (used / not used).
-    Phantom alibis count on the 'unsupported' row (and are tallied separately)."""
+    Partly supported and phantom alibis count on the 'unsupported' row."""
     cells = {k: [] for k in QUADRANTS}
     for c in claims:
         a = c.get("alibi", "unsupported")
@@ -808,7 +961,7 @@ def _alibi_table(claims):
 <th>Jenga: not used<div class="sub">answer came first</div></th></tr>
 <tr><th>Alibi: supported<div class="sub">cited lines were shown and carry the claim</div></th>
 {td("supported", "used")}{td("supported", "not used")}</tr>
-<tr><th>Alibi: unsupported<div class="sub">no citation, weak citation{f", or phantom ({n_phantom})" if n_phantom else ", or phantom"}</div></th>
+<tr><th>Alibi: not supported<div class="sub">partly supported, no citation, weak citation{f", or phantom ({n_phantom})" if n_phantom else ", or phantom"}</div></th>
 {td("unsupported", "used")}{td("unsupported", "not used")}</tr>
 </table>
 <div class="sub" style="margin-top:8px">Alibi asks "was it there?"; Jenga asks "did it use it?".

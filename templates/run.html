@@ -21,7 +21,7 @@
       {{ {'queued':'Queued','running':'Running','done':'Finished','error':'Failed'}[meta.status] }}
     </span>
     {% if meta.source == 'import' %}<span class="tag">Imported log{% if meta.import_name %} · {{ meta.import_name }}{% endif %}</span>{% endif %}
-    <span class="muted small">{{ meta.model }} · {{ meta.created|ago }}{% if meta.duration %} · {{ meta.duration }} s{% endif %}</span>
+    <span class="muted small">{{ meta.model }} · {{ meta.created|ago }}{% if meta.duration %} · {{ meta.duration }} s{% endif %}{% if meta.cost_usd is not none and meta.cost_usd is defined %} · ${{ '%.3f'|format(meta.cost_usd + (meta.judge_cost_usd or 0)) }}{% endif %}</span>
   </div>
   <h1 class="run-q">{{ meta.question }}</h1>
   <div class="run-files">
@@ -57,127 +57,145 @@
 </section>
 {% endif %}
 
+{% macro analyse_form(label='Run the check', cls='btn-primary') -%}
+<form method="post" action="{{ url_for('analyse', run_id=meta.id) }}" class="inline"><button class="btn {{ cls }}" type="submit">{{ label }}</button></form>
+{%- endmacro %}
+
 {% if meta.status in ('done', 'error') and (turns or meta.status == 'done') %}
+{% set n_claims = report.claims|length if report else 0 %}
 <nav class="tabs" role="tablist">
   <a class="tab {% if tab=='answer' %}is-active{% endif %}" href="?tab=answer">{{ icon('answer') }} Answer</a>
-  <a class="tab {% if tab=='trust' %}is-active{% endif %}" href="?tab=trust">{{ icon('shield') }} Trust
-    {% if meta.analysed %}<span class="score-pill {{ meta.trust_score|band }}">{{ meta.trust_score }}</span>{% endif %}</a>
+  <a class="tab {% if tab=='alibi' %}is-active{% endif %}" href="?tab=alibi">{{ icon('search') }} Alibi
+    {% if report and n_claims %}<span class="score-pill {{ ((100 * n_supported / n_claims)|int)|band }}" title="{{ n_supported }} of {{ n_claims }} claims supported">{{ n_supported }}/{{ n_claims }}</span>{% endif %}</a>
+  <a class="tab {% if tab=='jenga' %}is-active{% endif %}" href="?tab=jenga">{{ icon('blocks') }} Jenga
+    {% if meta.analysed %}<span class="score-pill {{ meta.trust_score|band }}" title="Answer traceability: how well the answer traces back to the PDFs (not a rating of the documents)">{{ meta.trust_score }}</span>{% endif %}</a>
   <a class="tab {% if tab=='log' %}is-active{% endif %}" href="?tab=log">{{ icon('list') }} Agent log <span class="count">{{ n_calls }}</span></a>
 </nav>
+{% if meta.analysis_error and not report %}<div class="flash flash-error">{{ icon('alert') }} <span>{{ meta.analysis_error }}</span></div>{% endif %}
 
 {# ================= ANSWER ================= #}
 {% if tab == 'answer' %}
-<div class="grid-answer">
-  <section class="card answer">
-    <h2 class="card-title">Answer</h2>
-    {% if answer_html %}<div class="prose">{{ answer_html|safe }}</div>
-    <p class="muted small">Hover a citation to see the cited lines{% if meta.files %}; click it to open the PDF page{% endif %}.</p>
-    {% else %}<p class="muted">No final answer yet.</p>{% endif %}
-  </section>
-  <aside class="stack">
-    <section class="card">
-      <h2 class="card-title">{{ icon('shield') }} Trust</h2>
-      {% if meta.analysed %}
-        <div class="mini-score">
-          <span class="big-score {{ meta.trust_score|band }}">{{ meta.trust_score }}</span>
-          <div>
-            {% for v, n in meta.verdict_counts.items() %}
-              <div class="small"><span class="chip {{ verdict_style.get(v, ('muted',v))[0] }}">{{ n }}</span> {{ verdict_style.get(v, ('', v))[1] }}</div>
-            {% endfor %}
-          </div>
-        </div>
-        <a class="btn btn-block" href="?tab=trust">See the full trust report</a>
-      {% elif meta.status == 'done' %}
-        <p class="muted small">Check whether each citation actually carries its claim. Uses the log only, with no API calls.</p>
-        <form method="post" action="{{ url_for('analyse', run_id=meta.id) }}"><button class="btn btn-primary btn-block" type="submit">Run Jenga analysis</button></form>
-      {% else %}<p class="muted small">Available when the agent finishes.</p>{% endif %}
-    </section>
-    {% if run and run.selected %}
-    <section class="card">
-      <h2 class="card-title">{{ icon('pin') }} Evidence the agent selected</h2>
-      {% for s in run.selected %}
-      <div class="evidence">
-        <div class="ev-head"><span class="tag">{{ s.file }} · p{{ s.page }} · L{{ s.start }}{% if s.end != s.start %}–{{ s.end }}{% endif %}</span></div>
-        <div class="ev-purpose">{{ s.purpose }}</div>
-        <div class="ev-text">{% for p, l, t in s.lines %}<div>{{ t }}</div>{% endfor %}</div>
-      </div>
+<section class="card answer-solo">
+  <h2 class="card-title">{{ icon('answer') }} Final answer</h2>
+  {% if answer_html %}<div class="prose">{{ answer_html|safe }}</div>
+  <p class="muted small">Hover a citation to see the cited lines{% if meta.files %}; click it to open the PDF page{% endif %}.
+    Whether the citations hold up is on the <a href="?tab=alibi">Alibi</a> and <a href="?tab=jenga">Jenga</a> tabs.</p>
+  {% else %}<p class="muted">No final answer yet.</p>{% endif %}
+</section>
+{% if report and grid %}
+<section class="card section">
+  <h2 class="card-title">Summary report</h2>
+  <p class="muted small lede">Every claim placed by its two checks. Alibi: was the evidence there? Jenga: did the answer depend on it?
+    The cell to worry about is <b>cited but not used</b>: real citations the answer didn't depend on.</p>
+  <div class="tbl-wrap">
+  <table class="a2x2">
+    <tr><th></th>
+      <th>Jenga: used<div class="sub">evidence came first</div></th>
+      <th>Jenga: not used<div class="sub">answer came first</div></th></tr>
+    {% for row, rlabel, rsub in [('supported', 'Alibi: supported', 'the facts are in the lines the agent was shown'),
+                                 ('unsupported', 'Alibi: not supported', 'partly supported, not found, no citation, or a phantom')] %}
+    <tr><th>{{ rlabel }}<div class="sub">{{ rsub }}</div></th>
+      {% for col in ('used', 'not used') %}{% set cell = grid[row][col] %}
+      <td class="{% if cell.claims %}q-on{% endif %}"><span class="chip {{ cell.cls }}">{{ cell.name }}</span>
+        <div class="q-n">{{ cell.claims|length }}</div>
+        <div class="sub">{% for c in cell.claims %}{{ c.id }}{{ ', ' if not loop.last }}{% else %}–{% endfor %}</div></td>
       {% endfor %}
-    </section>
+    </tr>
+    {% endfor %}
+  </table>
+  </div>
+  {% set n_replayed = report.claims|selectattr('used_source', 'equalto', 'replay')|list|length %}
+  <p class="muted small legend-note">Jenga column: {% if n_replayed %}the replay result for {{ n_replayed }} claim{{ '' if n_replayed == 1 else 's' }}, the static timing check for the rest{% else %}the static timing check (pull a block on the Jenga tab for a replay result){% endif %}.
+    Claim numbers match the <a href="?tab=alibi">Alibi</a> and <a href="?tab=jenga">Jenga</a> tabs.</p>
+</section>
+{% endif %}
+
+{# ================= ALIBI ================= #}
+{% elif tab == 'alibi' %}
+<section class="card section">
+  <div class="section-head">
+    <div>
+      <h2 class="card-title">{{ icon('search') }} Alibi: was it there?</h2>
+      <p class="muted small lede">For each claim: were the lines it cites actually shown to the agent, and do they carry the claim?</p>
+    </div>
+    {% if report %}
+    <div class="chips">
+      {% if judged %}
+      {% for v, n in judged.totals.verdicts|dictsort(by='value', reverse=true) %}<span class="chip {{ judge_style[v] }}">{{ n }} {{ v }}</span>{% endfor %}
+      {% else %}
+      {% for key in ('supported', 'partly supported', 'unsupported', 'phantom') %}
+      {% set n = report.claims|selectattr('alibi', 'equalto', key)|list|length %}
+      {% if n %}<span class="chip {{ alibi_style[key][0] }}">{{ n }} {{ key }}</span>{% endif %}
+      {% endfor %}
+      {% endif %}
+    </div>
     {% endif %}
-  </aside>
-</div>
-
-{# ================= TRUST ================= #}
-{% elif tab == 'trust' %}
+  </div>
   {% if report %}
-  <section class="card trust-summary">
-    <div class="ts-score">
-      <svg width="132" height="132" viewBox="0 0 150 150" role="img" aria-label="Trust score {{ report.trust_score }}">
-        <circle cx="75" cy="75" r="58" fill="none" stroke="var(--muted-bg)" stroke-width="14"/>
-        <circle cx="75" cy="75" r="58" fill="none" stroke="var(--{{ report.trust_score|band }})" stroke-width="14" stroke-linecap="round"
-          stroke-dasharray="{{ '%.1f'|format(364.4 * (report.trust_score or 0) / 100) }} 364.4" transform="rotate(-90 75 75)"/>
-        <text x="75" y="82" text-anchor="middle" font-size="36" font-weight="700" fill="var(--ink)">{{ report.trust_score }}</text>
-        <text x="75" y="104" text-anchor="middle" font-size="11" fill="var(--sub)">trust / 100</text>
-      </svg>
-    </div>
-    <div class="ts-body">
-      <h2 class="card-title">How far can you trust this answer?</h2>
-      <p class="muted small">
-        {% if report.trust_score >= 75 %}Most claims are carried by the lines they cite.
-        {% elif report.trust_score >= 45 %}Some claims lean on the model's own knowledge or on lines outside their citation. Check the flagged ones.
-        {% else %}Several citations don't carry their claims. Treat this answer as unverified.{% endif %}
-      </p>
-      <ul class="claim-list" id="claim-list" data-run="{{ meta.id }}" data-max-calls="{{ max_replay_calls }}">
-        {% for c in report.claims %}
-        {% set vs = verdict_style.get(c.verdict, ('muted', c.verdict)) %}
-        {% set est = estimates.get(c.id, 0) %}
-        {% set rstate = replays.get(c.id, 'none') %}
-        <li class="claim" data-claim="{{ c.id }}" data-state="{{ rstate }}">
-          <div class="claim-row">
-            <span class="score-pill {{ c.score|band }}">{{ c.score }}</span>
-            <span class="chip {{ vs[0] }}">{{ vs[1] }}</span>
-            <span class="cl-text">{{ c.text }}</span>
-          </div>
-          <div class="pull">
-            {% if est == 0 %}
-            <span class="muted small">Cites no lines, so there is no block to pull.</span>
-            {% elif est > max_replay_calls %}
-            <span class="muted small">Replay needs {{ est }} agent runs, over the cap of {{ max_replay_calls }}.</span>
-            {% else %}
-            <button type="button" class="btn small pull-btn" data-claim="{{ c.id }}" data-est="{{ est }}"
-              aria-controls="rp-{{ c.id }}"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="16" width="18" height="5" rx="1"/><rect x="3" y="3" width="18" height="5" rx="1"/><path d="M14 12h7" stroke-dasharray="2 2"/><rect x="3" y="9.5" width="8" height="5" rx="1"/></svg> <span class="pull-label">{% if rstate == 'done' %}Show replay{% else %}Pull the block{% endif %}</span></button>
-            <span class="pull-cost small" data-cost>
-              {% if rstate == 'done' %}Cached: 0 API calls
-              {% else %}Reruns the agent {{ est }}×: about {{ est }} API call{{ '' if est == 1 else 's' }} (cap {{ max_replay_calls }}){% endif %}
-            </span>
-            {% endif %}
-          </div>
-          <div class="replay-panel" id="rp-{{ c.id }}" aria-live="polite" hidden></div>
-        </li>
-        {% endfor %}
-      </ul>
-      <p class="muted small pull-note">“Pull the block” blanks the cited lines and plants a wrong value in them, then reruns the agent.
-        If the answer doesn't change, the citation was decoration. This tests behaviour, not the model's internal reasoning.</p>
-      <form method="post" action="{{ url_for('analyse', run_id=meta.id) }}" class="inline"><button class="btn btn-ghost small" type="submit">{{ icon('repeat') }} Re-run analysis</button></form>
-      <a class="btn btn-ghost small" href="{{ url_for('jenga_report', run_id=meta.id) }}" target="_blank" rel="noopener">Open report in new tab</a>
-    </div>
-  </section>
-  <iframe class="report-frame" id="report-frame" src="{{ url_for('jenga_report', run_id=meta.id, embed=1) }}" title="Jenga trust report"></iframe>
-  {% elif meta.status == 'done' %}
-  <section class="card cta">
-    {{ icon('shield', 32) }}
-    <h2>Check this answer with Jenga</h2>
-    <p class="muted">Jenga reads the agent's log and checks, claim by claim, whether each citation was shown to the agent,
-      whether it contains the claim's facts, which cited lines are load-bearing, and whether the agent wrote a value before it saw it.
-      It makes no API calls.</p>
-    <form method="post" action="{{ url_for('analyse', run_id=meta.id) }}"><button class="btn btn-primary" type="submit">Run Jenga analysis</button></form>
-  </section>
-  {% else %}
-  <section class="card cta"><p class="muted">The trust check is available once the agent has finished.</p></section>
+  {% if report.question_kind == 'judgement' %}
+  {% set focus = report.claims|map(attribute='alibi_terms')|map(attribute='opinion')|sum(start=[])|unique|list %}
+  <div class="note small">{{ icon('info') }}
+    <span><b>Judgement question.</b> It asks for an opinion{% if focus %} about <b>{{ focus|join(', ') }}</b>{% endif %},
+      which the documents can't contain, so Alibi checks only the facts each claim rests on.
+      Whether the opinion depends on those facts is Jenga's question.</span></div>
   {% endif %}
+  <div class="judge-bar small" id="judge-bar" data-run="{{ meta.id }}" data-status="{{ judge_status or '' }}">
+    {% if judged %}
+      {% set t = judged.totals %}
+      <span><b>Judge ({{ judged.model }})</b>: {{ t.supported }} of {{ t.atoms }} atomic facts found in the PDF lines{% if t.contradicted %}, <b class="bad-t">{{ t.contradicted }} contradicted</b>{% endif %}.</span>
+      <span class="muted">{% if judged.cost_usd is not none %}${{ '%.4f'|format(judged.cost_usd) }}{% endif %}</span>
+      <form method="post" action="{{ url_for('start_judge', run_id=meta.id) }}" class="inline"><button class="btn btn-ghost" type="submit">Re-check</button></form>
+    {% elif judge_status == 'running' %}
+      <span class="spinner"></span><span>{{ judge_model }} is checking each claim's atomic facts against the PDF lines… this page refreshes when it's done.</span>
+    {% elif judge_status == 'unavailable' %}
+      <span class="muted">The judge needs the Claude API (set ANTHROPIC_API_KEY).</span>
+    {% else %}
+      {% if judge_status == 'error' %}<span class="bad-t">Judge failed: {{ meta.judge_error }}</span>{% endif %}
+      <span class="muted">{{ judge_model }} can split each claim into atomic facts and check every one against the lines the agent was shown (one call, about $0.005).</span>
+      <form method="post" action="{{ url_for('start_judge', run_id=meta.id) }}" class="inline"><button class="btn btn-primary" type="submit">Check with the judge</button></form>
+    {% endif %}
+  </div>
+  <div class="tbl-wrap">
+  <table class="ctbl">
+    <thead><tr><th>#</th><th>Claim</th><th>Alibi</th>{% if judged %}<th>Atomic facts</th>{% endif %}</tr></thead>
+    <tbody>
+    {% for c in report.claims %}
+      {% set j = c.judge %}
+      <tr>
+        <td class="c-id">{{ c.id }}</td>
+        <td class="c-text">{{ c.text }}{% if not c.citations %} <span class="muted small">(no citation)</span>{% endif %}</td>
+        <td>
+          {% if j and c.alibi != 'phantom' %}<span class="chip {{ j.style }}">{{ j.verdict }}</span>
+          {% else %}{% set a = alibi_style.get(c.alibi, ('muted', c.alibi or 'n/a')) %}<span class="chip {{ a[0] }}">{{ a[1]|replace('Alibi: ', '') }}</span>{% endif %}
+        </td>
+        {% if judged %}
+        <td class="c-judge">
+          {% if j and j.atoms %}
+          <ul class="atoms">
+            {% for a in j.atoms %}
+            <li class="atom atom-{{ a.status|replace(' ', '-') }}"><span class="atom-mark" title="{{ a.status }}">{{ {'supported': '✓', 'not found': '?', 'contradicted': '✗'}[a.status] }}</span>
+              <span>{{ a.fact }}{% if a.refs %} <span class="ln-ref">{{ a.refs|join(', ') }}</span>{% endif %}</span></li>
+            {% endfor %}
+          </ul>
+          {% elif j %}<span class="muted small">no document facts</span>
+          {% else %}<span class="muted small">not judged</span>{% endif %}
+        </td>
+        {% endif %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% elif meta.status == 'done' %}
+  <div class="inline-cta">
+    <span class="muted small">Run the check to fill this table. It reads the log only, with no API calls.</span>
+    {{ analyse_form() }}
+  </div>
+  {% endif %}
+</section>
 
-{# ================= LOG ================= #}
-{% else %}
+{# ================= AGENT LOG ================= #}
+{% elif tab == 'log' %}
 <div class="log-toolbar">
   <div class="seg" role="group" aria-label="Log view">
     <button type="button" class="seg-btn is-active" data-view="formatted">Formatted</button>
@@ -248,6 +266,116 @@
 <div class="log-view" data-view="raw" hidden>
   <pre class="raw">{{ log_text or '(empty)' }}</pre>
 </div>
+
+{# ================= JENGA ================= #}
+{% else %}
+  {% if report %}
+  <section class="card jsum">
+    <div class="jsum-ring">
+      <svg width="112" height="112" viewBox="0 0 150 150" role="img" aria-label="Answer traceability {{ report.trust_score }} out of 100">
+        <circle cx="75" cy="75" r="58" fill="none" stroke="var(--muted-bg)" stroke-width="13"/>
+        <circle cx="75" cy="75" r="58" fill="none" stroke="var(--{{ report.trust_score|band }})" stroke-width="13" stroke-linecap="round"
+          stroke-dasharray="{{ '%.1f'|format(364.4 * (report.trust_score or 0) / 100) }} 364.4" transform="rotate(-90 75 75)"/>
+        <text x="75" y="88" text-anchor="middle" font-size="40" font-weight="700" fill="var(--ink)">{{ report.trust_score }}</text>
+      </svg>
+      <div class="jsum-cap">traceability</div>
+    </div>
+    <div class="jsum-body">
+      <h2 class="card-title">{{ icon('blocks') }} Jenga: did it use it?</h2>
+      <p class="lede">
+        {% if report.trust_score >= 75 %}Most claims are carried by the lines they cite.
+        {% elif report.trust_score >= 45 %}Some claims lean on the model's own knowledge or on lines outside their citation.
+        {% else %}Several citations don't carry their claims. Treat this answer as unverified.{% endif %}
+        <span class="muted small">The score rates how well the answer traces back to the PDFs, not the documents themselves.</span>
+      </p>
+      <div class="chips">
+        {% for v, n in report.verdict_counts.items() %}
+        <span class="chip {{ verdict_style.get(v, ('muted', v))[0] }}">{{ n }} {{ verdict_style.get(v, ('', v))[1]|lower }}</span>
+        {% endfor %}
+      </div>
+      <div class="jsum-actions">
+        {{ analyse_form(icon('repeat') ~ ' Re-run analysis', 'btn-ghost small') }}
+        <a class="btn btn-ghost small" href="{{ url_for('jenga_report', run_id=meta.id) }}" target="_blank" rel="noopener">Full report</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="card section">
+    <div class="section-head">
+      <div>
+        <h2 class="card-title">Jenga towers</h2>
+        <p class="muted small lede">Each claim stands on a tower of the lines it cites. Pull a block out and see whether the claim falls:
+          on paper from the log (free), or for real by rerunning the agent without those lines.</p>
+      </div>
+      <div class="legend small muted">
+        <span><i class="brick brick-sw brick-load-bearing"></i>load-bearing</span>
+        <span><i class="brick brick-sw brick-supporting"></i>supporting</span>
+        <span><i class="brick brick-sw brick-dead-weight"></i>dead weight</span>
+        <span><i class="brick brick-sw brick-phantom"></i>phantom (never shown)</span>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+    <table class="ctbl jtbl" id="claim-list" data-run="{{ meta.id }}" data-max-calls="{{ max_replay_calls }}">
+      <thead><tr><th>#</th><th>Claim</th><th>Tower</th><th>Verdict</th></tr></thead>
+      {% for c in report.claims %}
+      {% set vs = verdict_style.get(c.verdict, ('muted', c.verdict)) %}
+      {% set est = estimates.get(c.id, 0) %}
+      {% set rstate = replays.get(c.id, 'none') %}
+      {% set lab = (c.causal or {}).get('label') %}
+      <tbody class="claim" data-claim="{{ c.id }}" data-state="{{ rstate }}">
+        <tr>
+          <td class="c-id">{{ c.id }}</td>
+          <td class="c-text">{{ c.text }}
+            {% if c.flags %}<div class="flags">
+              {% for band, label, terms in c.flags %}<span class="flag flag-{{ band }}"><b>{{ label }}:</b> {{ terms|join(', ') }}</span>{% endfor %}
+            </div>{% endif %}
+          </td>
+          <td class="c-tower">
+            {% if c.tower %}
+            <div class="tower">
+              {% for b in c.tower %}{% set role = b.role|replace(' ', '-') %}
+              {% if loop.index0 is odd %}
+              <div class="tier tier-ends" title="{{ b.title }}"><i class="brick brick-{{ role }}"></i><i class="brick brick-{{ role }}">{{ b.label }}</i><i class="brick brick-{{ role }}"></i></div>
+              {% else %}
+              <div class="tier" title="{{ b.title }}"><span class="brick brick-long brick-{{ role }}">{{ b.label }}</span></div>
+              {% endif %}
+              {% endfor %}
+            </div>
+            {% else %}<div class="tower-none muted small">no citation:<br>nothing holds it up</div>{% endif %}
+          </td>
+          <td class="c-verdict">
+            <span class="chip {{ vs[0] }}">{{ vs[1] }}</span>
+            {% if lab %}<div class="pull-lab"><span class="muted small">replay:</span> <span class="chip {{ {'faithful': 'ok', 'post-rationalised': 'bad'}.get(lab, 'muted') }}">{{ lab }}</span></div>{% endif %}
+            {% if est and est <= max_replay_calls %}
+            <button type="button" class="btn small pull-btn" data-claim="{{ c.id }}" data-est="{{ est }}"
+              aria-controls="rp-{{ c.id }}">{{ icon('blocks') }} <span class="pull-label">{% if rstate == 'done' %}Show replay{% else %}Pull the block{% endif %}</span></button>
+            <div class="pull-cost small" data-cost>
+              {% if rstate == 'done' %}Cached: 0 API calls
+              {% else %}{{ est }} agent run{{ '' if est == 1 else 's' }}{% if meta.cost_usd %} · ~${{ '%.2f'|format(est * meta.cost_usd) }}{% endif %}{% endif %}
+            </div>
+            {% elif est %}<div class="pull-cost small">Needs {{ est }} agent runs (cap {{ max_replay_calls }})</div>
+            {% endif %}
+          </td>
+        </tr>
+        <tr class="replay-row" hidden><td colspan="4"><div class="replay-panel" id="rp-{{ c.id }}" aria-live="polite" hidden></div></td></tr>
+      </tbody>
+      {% endfor %}
+    </table>
+    </div>
+  </section>
+
+  {% elif meta.status == 'done' %}
+  <section class="card cta">
+    {{ icon('blocks', 32) }}
+    <h2>Check this answer with Jenga</h2>
+    <p class="muted">Jenga reads the agent's log and checks, claim by claim, whether each citation was shown to the agent,
+      whether it contains the claim's facts, which cited lines are load-bearing, and whether the agent wrote a value before it saw it.
+      It makes no API calls.</p>
+    {{ analyse_form('Run Jenga analysis') }}
+  </section>
+  {% else %}
+  <section class="card cta"><p class="muted">The check is available once the agent has finished.</p></section>
+  {% endif %}
 {% endif %}
 {% endif %}
 {% endblock %}
@@ -256,6 +384,6 @@
 <script>
 {% if meta.status in ('queued','running') %}pollRun("{{ meta.id }}");{% endif %}
 initRunPage();
-{% if tab == 'trust' and report %}initReplay("{{ meta.id }}");{% endif %}
+{% if tab == 'jenga' and report %}initReplay("{{ meta.id }}");{% endif %}
 </script>
 {% endblock %}

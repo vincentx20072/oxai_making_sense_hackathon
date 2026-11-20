@@ -149,8 +149,6 @@ pre.err{white-space:pre-wrap;font-family:var(--mono);font-size:12.5px;background
 .tab.is-active{color:var(--ink);border-bottom-color:var(--acc)}
 .count{font-size:11.5px;background:var(--soft);color:var(--sub);border-radius:999px;padding:0 7px}
 
-.grid-answer{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:start}
-.stack{display:flex;flex-direction:column;gap:18px}
 .prose{font-size:15.5px;line-height:1.65}
 .prose p{margin:0 0 12px}.prose ul{margin:0 0 12px;padding-left:20px}.prose li{margin-bottom:8px}
 .prose h3{font-size:15.5px;margin:14px 0 6px}
@@ -158,34 +156,16 @@ pre.err{white-space:pre-wrap;font-family:var(--mono);font-size:12.5px;background
   border-radius:6px;padding:0 6px;margin:0 1px 0 4px;vertical-align:1px;white-space:nowrap}
 .cite:hover{background:var(--acc);color:var(--acc-ink)}
 .cite-missing{background:var(--bad-bg);color:var(--bad)}
-.mini-score{display:flex;gap:16px;align-items:center;margin-bottom:14px}
-.mini-score .small{margin:3px 0}
-.big-score{font-size:34px;font-weight:700;border-radius:14px;padding:6px 14px;line-height:1.1}
-.evidence{border-top:1px solid var(--line);padding:12px 0}
-.evidence:first-of-type{border-top:0;padding-top:0}
-.ev-purpose{font-size:13px;color:var(--sub);margin:6px 0}
-.ev-text{font-size:13px;background:var(--sel);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:3px}
 
-.trust-summary{display:flex;gap:22px;align-items:flex-start;margin-bottom:18px}
-.ts-body{flex:1;min-width:0}
-.claim-list{list-style:none;padding:0;margin:12px 0 14px;display:flex;flex-direction:column;gap:8px}
-.claim-list li{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:14px}
-.cl-text{flex:1 1 300px;min-width:0}
 form.inline{display:inline}
-.report-frame{width:100%;border:0;background:transparent;height:900px;display:block}
 .cta{text-align:center;padding:40px 24px;max-width:680px;margin:0 auto;color:var(--acc)}
 .cta h2{color:var(--ink);margin-top:10px}.cta p{margin:0 auto 18px;max-width:520px}
 
 /* ---------- pull the block (per-claim replay) ---------- */
-.claim-list li.claim{display:block;padding:10px 0;border-top:1px solid var(--line)}
-.claim-list li.claim:first-child{border-top:0;padding-top:0}
-.claim-row{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
-.pull{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin:8px 0 0}
 .pull-btn.is-busy{opacity:.7;cursor:progress}
 .pull-btn.is-busy .ic{animation:spin .8s linear infinite}
 .pull-cost{color:var(--sub)}
 .claim[data-state="done"] .pull-cost{color:var(--ok)}
-.pull-note{margin:0 0 14px}
 .replay-panel{margin-top:10px;border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--soft)}
 .claim[data-state="done"] .replay-panel{background:var(--card)}
 .rp-busy{display:flex;gap:12px;align-items:center;font-size:14px;color:var(--sub)}
@@ -206,6 +186,65 @@ form.inline{display:inline}
 mark.rp-orig{background:var(--cited);color:var(--cited-ink)}
 mark.rp-plant{background:var(--bad-bg);color:var(--bad);font-weight:600}
 .rp-foot{margin-top:10px}
+
+/* ---------- Answer / Alibi / Jenga tabs ---------- */
+.answer-solo{max-width:none;margin-bottom:18px}
+.section{margin-bottom:18px}
+.section-head{display:flex;flex-wrap:wrap;gap:10px 18px;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.section-head>div:first-child{flex:1 1 380px;min-width:0}
+.section-head .card-title{margin-bottom:4px}
+.lede{margin:0;max-width:720px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.legend-note{margin:12px 0 0}
+.inline-cta{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:14px;border:1px dashed var(--line);border-radius:12px}
+.tbl-wrap{overflow-x:auto}
+.ctbl{width:100%;border-collapse:collapse;font-size:14px}
+.ctbl th,.ctbl td{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.ctbl thead th{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--sub);font-weight:600;white-space:nowrap}
+.ctbl tbody:last-child tr:last-child td,.ctbl tbody tr:last-child td{border-bottom:0}
+.ctbl tbody.claim{border-bottom:1px solid var(--line)}
+.ctbl tbody.claim:last-child{border-bottom:0}
+.ctbl tbody.claim td{border-bottom:0}
+.c-id{font-family:var(--mono);font-size:12.5px;color:var(--sub);white-space:nowrap}
+.c-text{min-width:260px;max-width:440px;line-height:1.5}
+.c-lines{min-width:250px}
+.cl{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;padding:2px 0}
+.cl .ln-ref{font-family:var(--mono);font-size:12.5px;min-width:64px}
+.kws{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px}
+.kw{display:inline-block;font-size:11.5px;font-weight:600;border-radius:5px;padding:1px 6px;line-height:1.5;border:1px solid transparent}
+.kw-found{background:var(--ok-bg);color:var(--ok)}
+.kw-near{background:var(--warn-bg);color:var(--warn)}
+.kw-missing{background:var(--bad-bg);color:var(--bad)}
+.kw-opinion{background:transparent;color:var(--sub);border:1px dashed var(--line)}
+.kw-sw{width:14px;height:11px;padding:0;margin-right:6px;vertical-align:-1px}
+.judge-bar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin:0 0 14px}
+.judge-bar .btn{padding:4px 10px}
+.bad-t{color:var(--bad)}
+.c-judge{min-width:260px}
+.atoms{list-style:none;margin:6px 0 0;padding:0;font-size:12.5px;line-height:1.4}
+.atom{display:flex;gap:6px;margin:2px 0}
+.atom-mark{font-weight:700;width:12px;flex:none;text-align:center}
+.atom-supported .atom-mark{color:var(--ok)}
+.atom-not-found .atom-mark{color:var(--warn)}
+.atom-contradicted .atom-mark,.atom-contradicted{color:var(--bad)}
+.atom .ln-ref{font-size:11px}
+.j-note{margin-top:4px;font-style:italic}
+.note{display:flex;gap:9px;align-items:flex-start;background:var(--acc-bg);border-radius:10px;padding:10px 12px;margin:0 0 14px}
+.note .ic{color:var(--acc);margin-top:2px}
+
+.pull-lab{margin-bottom:6px}
+.pull-cost{color:var(--sub);margin-top:5px}
+.replay-row td{padding:0 10px 14px}
+.replay-panel{margin-top:0}
+
+
+table.a2x2{width:100%;border-collapse:collapse;font-size:14px;margin-top:12px}
+.a2x2 th,.a2x2 td{border:1px solid var(--line);padding:12px;text-align:left;vertical-align:top}
+.a2x2 th{font-weight:600;width:30%}
+.a2x2 .sub{font-size:12.5px;color:var(--sub);font-weight:400;margin-top:2px}
+.a2x2 td{background:var(--soft)}
+.a2x2 td.q-on{background:var(--card)}
+.q-n{font-size:24px;font-weight:700;margin:6px 0 0;line-height:1.1}
 
 /* ---------- log ---------- */
 .log-toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:14px}
@@ -252,30 +291,7 @@ pre.result-plain{white-space:pre-wrap;font-family:var(--mono);font-size:12.5px;m
 pre.raw{white-space:pre-wrap;font-family:var(--mono);font-size:12px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
   padding:16px;max-height:75vh;overflow:auto;overflow-wrap:anywhere}
 
-/* ---------- /results ---------- */
-.res-meta{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
-.res-card{margin-bottom:18px}
-.ci-chart{display:grid;gap:10px;margin:6px 0 18px}
-.ci-row{display:grid;grid-template-columns:90px minmax(0,1fr) 48px;align-items:center;gap:12px}
-.ci-name{font-weight:600;text-transform:capitalize}
-.ci-val{font-variant-numeric:tabular-nums;text-align:right}
-.ci-track{position:relative;height:22px;background:var(--soft);border-radius:6px}
-.ci-bar{position:absolute;inset:0 auto 0 0;background:var(--acc2);border-radius:6px}
-.ci-bar-all{background:var(--acc)}
-.ci-whisker{position:absolute;top:50%;height:0;border-top:2px solid var(--ink)}
-.ci-whisker::before,.ci-whisker::after{content:"";position:absolute;top:-8px;height:14px;border-left:2px solid var(--ink)}
-.ci-whisker::before{left:-1px}.ci-whisker::after{right:-1px}
-.ci-axis{margin-top:-4px}
-.ci-ticks{display:flex;justify-content:space-between;font-size:11.5px;color:var(--sub)}
-.tbl-wrap{overflow-x:auto}
-.tbl{width:100%;border-collapse:collapse;font-size:14px}
-.tbl th,.tbl td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
-.tbl th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--sub);font-weight:600}
-.tbl tbody tr:last-child td{border-bottom:0}
-.tbl .num{text-align:right;font-variant-numeric:tabular-nums}
-
 /* ---------- responsive ---------- */
-@media (max-width:980px){.grid-answer{grid-template-columns:1fr}}
 @media (max-width:760px){
   .shell{grid-template-columns:1fr}
   .side{position:fixed;inset:0 auto 0 0;width:min(300px,85vw);z-index:20;transform:translateX(-102%);transition:transform .2s;box-shadow:0 0 40px rgba(0,0,0,.25)}
@@ -284,14 +300,54 @@ pre.raw{white-space:pre-wrap;font-family:var(--mono);font-size:12px;background:v
     border-radius:10px;margin-bottom:14px;cursor:pointer}
   .main{padding-top:16px}
   .how{grid-template-columns:1fr}
-  .trust-summary{flex-direction:column;align-items:center}
-  .ts-body{width:100%}
+  .c-text{min-width:200px}
   h1,.run-q{font-size:21px}
   .ln{grid-template-columns:62px minmax(0,1fr)}
   .ln-tag{display:none}
-  .ci-row{grid-template-columns:64px minmax(0,1fr) 40px;gap:8px}
   .result,.sel-purpose,pre.result-plain,.call-select .lines{margin-left:0}
   .turns::before{left:15px}
   .turn{grid-template-columns:32px minmax(0,1fr);gap:8px}
   .turn-n{width:32px}
 }
+
+/* ---------- Jenga tab ---------- */
+.jsum{display:flex;gap:22px;align-items:center;margin-bottom:18px}
+.jsum-ring{flex:none;text-align:center}
+.jsum-ring svg{display:block}
+.jsum-cap{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--sub);margin-top:2px}
+.jsum-body{flex:1;min-width:0}
+.jsum-body .lede{margin:4px 0 10px}
+.jsum-body .lede .small{display:block;margin-top:2px}
+.jsum-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.jtbl td{vertical-align:middle}
+.jtbl td.c-id{vertical-align:top}
+.flags{display:flex;flex-direction:column;gap:3px;margin-top:6px}
+.flag{font-size:12.5px;line-height:1.35;padding-left:8px;border-left:3px solid var(--line);color:var(--sub)}
+.flag b{font-weight:600}
+.flag-bad{border-color:var(--bad)}.flag-bad b{color:var(--bad)}
+.flag-warn{border-color:var(--warn)}.flag-warn b{color:var(--warn)}
+.c-tower{width:150px}
+.c-verdict{min-width:160px}
+.c-verdict .chip{white-space:normal;border-radius:7px;line-height:1.35;padding:3px 8px}
+.c-verdict .pull-btn{margin-top:8px}
+.pull-lab{margin-top:6px}
+.pull-cost{color:var(--sub);margin-top:4px}
+
+/* A Jenga tower seen from the side: tiers alternate between one block's
+   long face and the end faces of three blocks.  The first cited line is
+   the base; the line under the tower is the table. */
+.tower{display:flex;flex-direction:column-reverse;gap:2px;width:132px;padding-bottom:3px;border-bottom:3px solid var(--sub);cursor:help}
+.tier{display:flex}
+.tier-ends{display:grid;grid-template-columns:repeat(3,1fr);gap:3px}
+.brick{display:flex;align-items:center;justify-content:center;height:20px;border-radius:2px;
+  font:700 10.5px/1 var(--mono);white-space:nowrap;overflow:hidden;
+  box-shadow:inset 0 -3px 0 rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.3)}
+.brick-long{width:100%}
+.brick-load-bearing{background:var(--acc);color:var(--acc-ink)}
+.brick-supporting{background:var(--acc2);color:var(--ink)}
+.brick-dead-weight{background:var(--soft);color:var(--sub);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--sub) 55%,transparent)}
+.brick-phantom{background:transparent;color:var(--bad);box-shadow:inset 0 0 0 2px var(--bad);
+  background-image:repeating-linear-gradient(135deg,transparent 0 5px,var(--bad-bg) 5px 10px)}
+.brick-sw{display:inline-block;width:22px;height:10px;margin:0 6px 0 0;vertical-align:-1px}
+.tower-none{width:132px;border-bottom:3px solid var(--line);padding-bottom:6px;line-height:1.35}
+@media (max-width:720px){.jsum{flex-direction:column;align-items:flex-start}}
