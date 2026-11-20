@@ -397,9 +397,22 @@ def test_claude_agent_loop_and_judge():
         {"fact": "b", "status": "not found", "lines": []}]}, [])
     assert s["verdict"] == "not found" and s["kind"] == "judgement"   # worst fact decides
     s = judge.score_claim({"kind": "outside knowledge", "atoms": []}, [])
+    assert s["verdict"] == "n/a"                                     # not about the documents
+    s = judge.score_claim({"kind": "document fact", "atoms": []}, [])
     assert s["verdict"] == "not found"                               # nothing checkable
+    s = judge.score_claim({"kind": "judgement", "atoms": [            # cited correctly, still
+        {"fact": "a", "status": "supported", "lines": [3]}]}, [3])   # only facts can be cited
+    assert s["verdict"] == "n/a"
     assert set(judge.STYLE) == set(judge.VERDICTS) == {"supported", "miscited",
-                                                       "not found", "contradicted"}
+                                                       "not found", "contradicted", "n/a"}
+    # a judgement can't be miscited: true facts, uncited -> n/a (grey) ...
+    s = judge.score_claim({"kind": "judgement", "atoms": [
+        {"fact": "a", "status": "supported", "lines": [3]}]}, [])
+    assert s["verdict"] == "n/a" and judge.STYLE["n/a"] == "muted"
+    # ... but a judgement resting on a contradicted fact is still flagged
+    s = judge.score_claim({"kind": "judgement", "atoms": [
+        {"fact": "a", "status": "contradicted", "lines": [3]}]}, [])
+    assert s["verdict"] == "contradicted"
     # judge.json written under the old names is recounted to the four
     old = {"claims": {"c1": {"kind": "judgement", "verdict": "partly grounded judgement",
                              "cited_lines": [3], "atoms": [
@@ -407,14 +420,43 @@ def test_claude_agent_loop_and_judge():
                                  {"fact": "b", "status": "supported", "lines": [9]}]}},
            "totals": {"atoms": 2, "supported": 2}}
     judge.rescore(old)
-    assert old["claims"]["c1"]["verdict"] == "miscited"
-    assert old["totals"]["verdicts"] == {"miscited": 1} and old["totals"]["ci"]
+    assert old["claims"]["c1"]["verdict"] == "n/a"          # a judgement: not miscited
+    assert old["totals"]["verdicts"] == {"n/a": 1} and old["totals"]["ci"]
     s = judge.score_claim({"kind": "document fact", "atoms": [
         {"fact": "a", "status": "contradicted", "lines": [3]}]}, [3])
     assert s["verdict"] == "contradicted"
     s = judge.score_claim({"kind": "document fact", "atoms": [   # "doesn't mention X"
         {"fact": "no mention of clearance", "status": "supported", "lines": []}]}, [])
     assert s["verdict"] == "supported"
+
+
+def test_provider_choice():
+    """Groq is used when its key is the only one (the Vercel demo); Claude otherwise."""
+    import os
+    import llm
+    names = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "GROQ_API_KEY",
+             "AGENT_PROVIDER", "AGENT_BASE_URL")
+    saved = {k: os.environ.pop(k, None) for k in names}
+    try:
+        def check(env, want, creds):
+            for k in names:
+                os.environ.pop(k, None)
+            os.environ.update(env)
+            assert (llm.provider(), llm.has_credentials()) == (want, creds), env
+        check({}, "anthropic", False)
+        check({"GROQ_API_KEY": "x"}, "openai-compatible", True)
+        check({"ANTHROPIC_API_KEY": "x"}, "anthropic", True)
+        check({"ANTHROPIC_API_KEY": "x", "GROQ_API_KEY": "y"}, "anthropic", True)
+        check({"ANTHROPIC_API_KEY": "x", "GROQ_API_KEY": "y", "AGENT_PROVIDER": "groq"},
+              "openai-compatible", True)
+        os.environ.pop("AGENT_PROVIDER")
+        os.environ.pop("ANTHROPIC_API_KEY")
+        assert llm.default_model() == llm.GROQ_MODEL
+    finally:
+        for k, v in saved.items():
+            os.environ.pop(k, None)
+            if v is not None:
+                os.environ[k] = v
 
 
 if __name__ == "__main__":

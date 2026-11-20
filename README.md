@@ -24,8 +24,9 @@ with "Pull the block" costs about $0.50–0.60 (about 40 agent runs; see below).
 
 Settings (environment variables or `.env`): `AGENT_MODEL` (default `claude-sonnet-5-5`),
 `AGENT_EFFORT` (default `medium`), `JUDGE_MODEL` (default `claude-haiku-5-5`),
-`JENGA_MEASURE_MAX_CALLS` (default 60 agent runs per measured claim). The old Groq
-setup still works with `AGENT_PROVIDER=groq` and `GROQ_API_KEY`.
+`JENGA_MEASURE_MAX_CALLS` (default 60 agent runs per measured claim). Groq (free, model
+`openai/gpt-oss-120b`) is used instead of Claude when `GROQ_API_KEY` is the only key set, or
+with `AGENT_PROVIDER=groq`. Without a Claude key, the Alibi judge shows as unavailable.
 
 | Page | What you get |
 |---|---|
@@ -37,7 +38,22 @@ setup still works with `AGENT_PROVIDER=groq` and `GROQ_API_KEY`.
 | **Analyse an existing log** | Upload a `.log` file from an earlier run to check it. |
 
 Runs are stored in `data/runs/<id>/`: the uploaded PDFs, `agent.log`, `report.json`,
-`judge.json`, replay results and the full report.
+`judge.json` and replay results.
+
+## Deploy on Vercel (Groq demo)
+
+The app runs on Vercel's Flask preset as it is: import the repo, keep the root directory `./`,
+and set these environment variables before deploying:
+
+| Variable | Value |
+|---|---|
+| `AGENT_PROVIDER` | `groq` |
+| `GROQ_API_KEY` | a Groq key from console.groq.com |
+| `JENGA_SECRET_KEY` | any long random string |
+
+On Vercel (detected from the `VERCEL` variable) runs are stored in `/tmp/jenga`, which is
+temporary, and jobs run inside the request instead of a background thread. The demo runs
+committed under `data/runs/` are copied there on start, so the site opens with examples.
 
 ## Files
 
@@ -46,7 +62,7 @@ Runs are stored in `data/runs/<id>/`: the uploaded PDFs, `agent.log`, `report.js
 | `app.py` | Flask routes, background jobs (agent, judge, replays) and PDF validation. |
 | `agent4.py` | The PDF agent. It logs the model's reasoning before each tool call, which Jenga's timing check needs, and the run's token usage and cost. |
 | `llm.py` | Model clients, settings, prices and the `.env` loader. |
-| `jenga.py` | Claim splitting, the static checks and the full report. Also a CLI: `python jenga.py some.log --out out`. |
+| `jenga.py` | Claim splitting and the static checks. Also a CLI: `python jenga.py some.log --out out`. |
 | `judge.py` | The Haiku judge: atomic facts per claim; verdicts are counted from the facts in code. |
 | `replay.py` | The causal tests behind "Pull the block": sampled reruns of the same model. |
 | `intervals.py` | Wilson and Newcombe 95% intervals for the measured rates. |
@@ -104,3 +120,7 @@ claim costs about 40 agent runs, roughly $0.50–0.60 on Sonnet, and takes 3–5
 The Alibi judge's count of facts found carries a Wilson interval too. There n is the number of
 atomic facts in the answer, so the interval covers sampling noise in those facts, not the judge's
 own mistakes.
+
+## Licence
+
+MIT; see [LICENSE](LICENSE).

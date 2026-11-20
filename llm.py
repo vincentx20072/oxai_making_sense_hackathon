@@ -2,8 +2,10 @@
 Model clients and settings.
 
     make_client()    Anthropic client by default (Claude).  Groq / an
-                     OpenAI-compatible endpoint only when AGENT_PROVIDER=groq
-                     or AGENT_BASE_URL is set (the old hackathon setup).
+                     OpenAI-compatible endpoint when AGENT_PROVIDER=groq or
+                     AGENT_BASE_URL is set, or when GROQ_API_KEY is the only
+                     key (the Vercel demo).  Without a Claude key the Alibi
+                     judge reports "unavailable" and makes no call.
     default_model()  AGENT_MODEL, else claude-sonnet-5-5 (Groq: gpt-oss-120b).
     agent_effort()   AGENT_EFFORT, else "medium".
     judge_model()    JUDGE_MODEL, else claude-haiku-5-5 (used by judge.py).
@@ -46,9 +48,15 @@ def _load_dotenv(path=Path(__file__).with_name(".env")):
 _load_dotenv()
 
 
+def _has_anthropic_key():
+    return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
+
+
 def provider():
     if os.environ.get("AGENT_BASE_URL") or os.environ.get("AGENT_PROVIDER", "").lower() == "groq":
         return "openai-compatible"
+    if os.environ.get("GROQ_API_KEY") and not _has_anthropic_key():
+        return "openai-compatible"   # only a Groq key (e.g. the Vercel demo): use Groq
     return "anthropic"
 
 
@@ -68,7 +76,7 @@ def judge_model():
 
 def has_credentials():
     if provider() == "anthropic":
-        return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
+        return _has_anthropic_key()
     return bool(os.environ.get("GROQ_API_KEY") or os.environ.get("AGENT_BASE_URL"))
 
 

@@ -1,0 +1,19 @@
+{
+  "run_id": "c4c8ad5851e0",
+  "question": "When was Keble College, Oxford founded? Answer in one sentence with a citation.",
+  "answer": "Keble College, Oxford was founded in 1870. [known_fact.pdf, P1-L4]",
+  "selected_evidence": [
+    {
+      "filename": "known_fact.pdf",
+      "page": 1,
+      "start_line": 4,
+      "end_line": 4,
+      "purpose": "foundation date",
+      "text": "[P1-L4] Keble College, Oxford was founded in 1870."
+    }
+  ],
+  "plants": {},
+  "label": null,
+  "usage": null,
+  "cost_usd": null
+}

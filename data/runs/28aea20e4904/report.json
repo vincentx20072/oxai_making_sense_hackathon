@@ -1,0 +1,165 @@
+{
+  "run_id": "28aea20e4904",
+  "question": "When was Veltrix Analytics founded? Answer in one sentence with a citation.",
+  "model": "openai/gpt-oss-120b",
+  "label": null,
+  "answer": "Veltrix Analytics was founded in 2011. [invented_fact.pdf, P1-L4]",
+  "question_terms": [
+    "analytics",
+    "citation",
+    "founded",
+    "sentence",
+    "veltrix"
+  ],
+  "question_kind": "fact",
+  "files": [
+    "invented_fact.pdf"
+  ],
+  "jenga_version": 7,
+  "steps": [
+    {
+      "idx": 1,
+      "tool": "think",
+      "label": "agent text"
+    },
+    {
+      "idx": 2,
+      "tool": "list_files",
+      "label": "list files"
+    },
+    {
+      "idx": 5,
+      "tool": "think",
+      "label": "agent text"
+    },
+    {
+      "idx": 6,
+      "tool": "search_pdf",
+      "label": "search \"Veltrix Analytics\""
+    },
+    {
+      "idx": 9,
+      "tool": "think",
+      "label": "agent text"
+    },
+    {
+      "idx": 10,
+      "tool": "select_evidence",
+      "label": "select p1 L4-4"
+    },
+    {
+      "idx": 13,
+      "tool": "think",
+      "label": "agent text"
+    },
+    {
+      "idx": 14,
+      "tool": "answer",
+      "label": "final answer"
+    }
+  ],
+  "term_marks": {
+    "founded": {
+      "evidence_step": 3,
+      "own_step": null,
+      "early": false
+    },
+    "2011": {
+      "evidence_step": 3,
+      "own_step": 4,
+      "early": false
+    }
+  },
+  "selected_evidence": [
+    {
+      "file": "invented_fact.pdf",
+      "page": 1,
+      "start": 4,
+      "end": 4,
+      "purpose": "foundation date"
+    }
+  ],
+  "claims": [
+    {
+      "id": "c1",
+      "text": "Veltrix Analytics was founded in 2011",
+      "citations": [
+        {
+          "file": "invented_fact.pdf",
+          "page": 1,
+          "start": 4,
+          "end": 4,
+          "raw": "[invented_fact.pdf, P1-L4]"
+        }
+      ],
+      "verdict": "grounded",
+      "score": 100,
+      "deductions": [],
+      "E_lex": 1.0,
+      "precision": 1.0,
+      "terms": [
+        {
+          "term": "founded",
+          "label": "founded",
+          "support": "cited",
+          "in_question": true,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": 3,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "2011",
+          "label": "2011",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": 4,
+          "first_own_source": "reasoning",
+          "first_evidence_step": 3,
+          "asserted_before_seen": false
+        }
+      ],
+      "bridging_terms": [],
+      "timing_terms": [],
+      "cited_lines": [
+        {
+          "file": "invented_fact.pdf",
+          "page": 1,
+          "line": 4,
+          "text": "Veltrix Analytics was founded in 2011.",
+          "status": "snippet only",
+          "selected": true,
+          "terms": [
+            "founded",
+            "2011"
+          ],
+          "unique_terms": [
+            "founded",
+            "2011"
+          ],
+          "role": "load-bearing"
+        }
+      ],
+      "causal": null,
+      "alibi": "supported",
+      "alibi_terms": {
+        "found": [
+          "founded",
+          "2011"
+        ],
+        "nearby": [],
+        "missing": [],
+        "opinion": []
+      },
+      "alibi_share": 1.0
+    }
+  ],
+  "verdict_counts": {
+    "grounded": 1
+  },
+  "trust_score": 100,
+  "trace_has_agent_text": true,
+  "notes": [
+    "Static signals are lexical. They show whether the cited text can carry the claim, not whether the agent causally relied on it."
+  ]
+}

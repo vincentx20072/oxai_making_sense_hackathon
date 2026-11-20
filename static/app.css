@@ -187,15 +187,19 @@ mark.rp-mark{background:color-mix(in srgb,var(--acc) 22%,transparent);color:inhe
 .rp-s{font-size:14px}
 .ci-wrap[title]{cursor:help}
 
-/* A replayed claim: the overall result in one line, then one card per test
+/* A replayed claim: the overall result in one sentence, then one card per test
    (a paragraph, a number line, an example answer), two to a row.  Neutral
-   cards; the only colour is the result chip and the number line's blue. */
+   cards; the only colour is the number line's blue. */
 .story-row td{padding-top:0}
 .story-tag{display:block;margin-top:3px;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em}
-.story-row .rp-head{margin:0 0 10px}
-.test-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.rp-headline{margin:0 0 10px;font-size:13.5px;line-height:1.5}
+.test-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:10px;row-gap:0}
 @media (max-width:900px){.test-grid{grid-template-columns:1fr}}
-.test-card{min-width:0;border:1px solid var(--line);border-radius:10px;background:var(--soft);padding:12px 14px;
+/* Each card spans six rows of the grid (title, text, count, line, note,
+   example) and shares them with the card beside it, so the two number lines
+   sit at the same height however long each paragraph is. */
+.test-card{min-width:0;display:grid;grid-row:span 6;grid-template-rows:subgrid;row-gap:0;align-content:start;
+  margin-bottom:10px;border:1px solid var(--line);border-radius:10px;background:var(--soft);padding:12px 14px;
   font-size:13.5px;line-height:1.55}
 .test-card p{margin:0}
 .test-title{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:13.5px;font-weight:600}
@@ -203,9 +207,9 @@ mark.rp-mark{background:color-mix(in srgb,var(--acc) 22%,transparent);color:inhe
   background:var(--muted-bg);color:var(--sub);font-size:11.5px}
 .test-example summary{cursor:pointer;color:var(--sub);font-size:12.5px;margin-top:10px}
 .test-example .rp-text{margin-top:6px;border:1px solid var(--line);border-radius:8px;background:var(--card)}
-.numline{margin:10px 0 2px}
-.numline .rp-s{font-size:13px}
-.numline .ci-wrap{max-width:none;margin-bottom:0}
+.nl-head{margin-top:12px;font-size:13px;align-self:end}
+.nl-body{margin-top:4px}
+.nl-body .ci-wrap{max-width:none;margin:0}
 .nl-scale{position:relative;display:block;height:14px;font-size:11px;margin-top:2px}
 .nl-scale span{position:absolute;transform:translateX(-50%)}
 .nl-scale span:first-child{transform:none}

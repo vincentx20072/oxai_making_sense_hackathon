@@ -1,0 +1,181 @@
+{
+  "run_id": "c4c8ad5851e0",
+  "question": "When was Keble College, Oxford founded? Answer in one sentence with a citation.",
+  "model": "openai/gpt-oss-120b",
+  "label": null,
+  "answer": "Keble College, Oxford was founded in 1870. [known_fact.pdf, P1-L4]",
+  "question_terms": [
+    "citation",
+    "college",
+    "founded",
+    "keble",
+    "oxford",
+    "sentence"
+  ],
+  "question_kind": "fact",
+  "files": [
+    "known_fact.pdf"
+  ],
+  "jenga_version": 7,
+  "steps": [
+    {
+      "idx": 1,
+      "tool": "think",
+      "label": "agent text"
+    },
+    {
+      "idx": 2,
+      "tool": "list_files",
+      "label": "list files"
+    },
+    {
+      "idx": 5,
+      "tool": "think",
+      "label": "agent text"
+    },
+    {
+      "idx": 6,
+      "tool": "list_files",
+      "label": "list files"
+    },
+    {
+      "idx": 9,
+      "tool": "think",
+      "label": "agent text"
+    },
+    {
+      "idx": 10,
+      "tool": "get_pdf_info",
+      "label": "get_pdf_info"
+    },
+    {
+      "idx": 13,
+      "tool": "think",
+      "label": "agent text"
+    },
+    {
+      "idx": 14,
+      "tool": "search_pdf",
+      "label": "search \"Keble\""
+    },
+    {
+      "idx": 17,
+      "tool": "think",
+      "label": "agent text"
+    },
+    {
+      "idx": 18,
+      "tool": "select_evidence",
+      "label": "select p1 L4-4"
+    },
+    {
+      "idx": 21,
+      "tool": "answer",
+      "label": "final answer"
+    }
+  ],
+  "term_marks": {
+    "founded": {
+      "evidence_step": 7,
+      "own_step": null,
+      "early": false
+    },
+    "1870": {
+      "evidence_step": 7,
+      "own_step": 8,
+      "early": false
+    }
+  },
+  "selected_evidence": [
+    {
+      "file": "known_fact.pdf",
+      "page": 1,
+      "start": 4,
+      "end": 4,
+      "purpose": "foundation date"
+    }
+  ],
+  "claims": [
+    {
+      "id": "c1",
+      "text": "Keble College, Oxford was founded in 1870",
+      "citations": [
+        {
+          "file": "known_fact.pdf",
+          "page": 1,
+          "start": 4,
+          "end": 4,
+          "raw": "[known_fact.pdf, P1-L4]"
+        }
+      ],
+      "verdict": "grounded",
+      "score": 100,
+      "deductions": [],
+      "E_lex": 1.0,
+      "precision": 1.0,
+      "terms": [
+        {
+          "term": "founded",
+          "label": "founded",
+          "support": "cited",
+          "in_question": true,
+          "first_own_step": null,
+          "first_own_source": null,
+          "first_evidence_step": 7,
+          "asserted_before_seen": false
+        },
+        {
+          "term": "1870",
+          "label": "1870",
+          "support": "cited",
+          "in_question": false,
+          "first_own_step": 8,
+          "first_own_source": "reasoning",
+          "first_evidence_step": 7,
+          "asserted_before_seen": false
+        }
+      ],
+      "bridging_terms": [],
+      "timing_terms": [],
+      "cited_lines": [
+        {
+          "file": "known_fact.pdf",
+          "page": 1,
+          "line": 4,
+          "text": "Keble College, Oxford was founded in 1870.",
+          "status": "snippet only",
+          "selected": true,
+          "terms": [
+            "founded",
+            "1870"
+          ],
+          "unique_terms": [
+            "founded",
+            "1870"
+          ],
+          "role": "load-bearing"
+        }
+      ],
+      "causal": null,
+      "alibi": "supported",
+      "alibi_terms": {
+        "found": [
+          "founded",
+          "1870"
+        ],
+        "nearby": [],
+        "missing": [],
+        "opinion": []
+      },
+      "alibi_share": 1.0
+    }
+  ],
+  "verdict_counts": {
+    "grounded": 1
+  },
+  "trust_score": 100,
+  "trace_has_agent_text": true,
+  "notes": [
+    "Static signals are lexical. They show whether the cited text can carry the claim, not whether the agent causally relied on it."
+  ]
+}

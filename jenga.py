@@ -648,7 +648,7 @@ def analyse_run(run):
     # document header, not in every cited line; don't treat it as a claim value.
     header = " ".join(v["text"] for (f, p, l), v in seen.items() if p == 1 and l <= 3)
     files = sorted({k[0] for k in seen if k[0]})
-    # ...and a file's own name ("Christopher_Lee_CV.pdf") is not a claim value either
+    # ...and a file's own name ("Jane_Doe_CV.pdf") is not a claim value either
     file_words = {t.lower() for f in files for t in tokens(f.replace("_", " "))}
     subject = frozenset({t for t in q_terms if contains(header, t)} | file_words)
     kind = question_kind(run["question"])

@@ -60,17 +60,43 @@ MAX_FILES = 10
 MAX_TOTAL_MB = 25
 RUN_ID_RE = re.compile(r"^[0-9a-f]{12}$")
 
+# On Vercel (serverless) the code folder is read-only and work done after a
+# response can be cut off, so runs live in /tmp and jobs run inside the request.
+ON_VERCEL = bool(os.environ.get("VERCEL"))
+
 app = Flask(__name__)
 app.config.update(
     SECRET_KEY=os.environ.get("JENGA_SECRET_KEY") or os.urandom(24),
     MAX_CONTENT_LENGTH=(MAX_TOTAL_MB + 1) * 1024 * 1024,
-    DATA_DIR=Path(os.environ.get("JENGA_DATA_DIR", BASE / "data")),
+    DATA_DIR=Path(os.environ.get("JENGA_DATA_DIR")
+                  or ("/tmp/jenga" if ON_VERCEL else BASE / "data")),
     # Replaced in tests with a fake client so no API calls are made.
     CLIENT_FACTORY=agent4.make_client,
+    SYNC_JOBS=ON_VERCEL or os.environ.get("JENGA_SYNC_JOBS") == "1",
 )
 
 _executor = ThreadPoolExecutor(max_workers=2)
 _meta_lock = threading.Lock()
+
+
+def submit(fn, *args):
+    """Start a job: in the background normally, or right here in the request when
+    SYNC_JOBS is on (serverless hosts may stop work once the response is sent)."""
+    if app.config["SYNC_JOBS"]:
+        fn(*args)
+    else:
+        _executor.submit(fn, *args)
+
+
+def seed_demo_runs():
+    """Copy runs bundled with the code (data/runs/, the demo runs only) into a
+    separate data folder once, so a fresh serverless instance isn't empty."""
+    src, dst = BASE / "data" / "runs", Path(app.config["DATA_DIR"]) / "runs"
+    if src.is_dir() and src.resolve() != dst.resolve():
+        dst.mkdir(parents=True, exist_ok=True)
+        for run in src.iterdir():
+            if run.is_dir() and RUN_ID_RE.match(run.name) and not (dst / run.name).exists():
+                shutil.copytree(run, dst / run.name)
 
 
 # ============================================================
@@ -269,7 +295,7 @@ def inject_globals():
             or app.config["CLIENT_FACTORY"] is not agent4.make_client,
             "key_name": "ANTHROPIC_API_KEY" if llm.provider() == "anthropic" else "GROQ_API_KEY",
             "max_files": MAX_FILES, "max_mb": MAX_TOTAL_MB,
-            "verdict_style": jenga.VERDICT_STYLE, "replay_style": REPLAY_STYLE}
+            "verdict_style": jenga.VERDICT_STYLE}
 
 
 # ============================================================
@@ -349,7 +375,7 @@ def create_run():
     save_meta(run_id, id=run_id, source="agent", question=question, created=now_iso(),
               status="queued", files=files, model=agent4.MODEL, auto_jenga=auto,
               analysed=False, trust_score=None)
-    _executor.submit(run_agent_job, run_id)
+    submit(run_agent_job, run_id)
     return redirect(url_for("view_run", run_id=run_id))
 
 
@@ -360,7 +386,9 @@ TAB_ALIASES = {"trust": "jenga"}  # old links keep working
 # keyword check is the fallback before that).  A phantom citation (a line
 # never shown to the agent) stays phantom whatever the judge says.
 # Summary report row: the facts are in the PDF (supported, miscited) or not.
-JUDGE_TO_ALIBI = {"supported": "supported", "miscited": "supported"}
+# Summary report's Alibi axis ("facts found?"): a miscited claim's facts and an
+# n/a judgement's facts are all in the PDF
+JUDGE_TO_ALIBI = {"supported": "supported", "miscited": "supported", "n/a": "supported"}
 # Before the judge has run, the keyword check's result shown as the same four
 # verdicts: a missing term, or a cited line the agent never saw, is "not found"
 # (the keyword check can't tell miscited or contradicted apart).
@@ -457,7 +485,7 @@ def view_run(run_id):
                    if run and run["answer"] else "")
     n_calls = sum(1 for t in turns for i in t["items"] if i["type"] in ("call", "select"))
 
-    replays, stories, estimates, grid, n_supported, judged = {}, {}, {}, None, 0, None
+    replays, stories, estimates, grid, n_supported, n_checked, judged = {}, {}, {}, None, 0, 0, None
     if report:
         for c in report["claims"]:
             c["flags"] = claim_flags(c)
@@ -476,8 +504,10 @@ def view_run(run_id):
                              else KEYWORD_VERDICT.get(c.get("alibi"), "not found"))
         # the tab's score counts what the Alibi tab calls "supported": a miscited
         # claim's facts are in the PDF (the 2x2 grid counts it as found), but not
-        # in the lines it cites, so it doesn't count here
+        # in the lines it cites, so it doesn't count here.  n/a judgements are left
+        # out of both sides: the citation question doesn't apply to them.
         n_supported = sum(1 for c in report["claims"] if c["verdict4"] == "supported")
+        n_checked = sum(1 for c in report["claims"] if c["verdict4"] != "n/a")
         grid = alibi_grid(report["claims"])
         if tab == "jenga":
             estimates = replay_estimates(report, run_id)
@@ -489,7 +519,7 @@ def view_run(run_id):
     return render_template(
         "run.html", meta=meta, run=run, turns=turns, report=report, tab=tab,
         replays=replays, stories=stories, estimates=estimates, max_replay_calls=replay.measure_max_calls(),
-        grid=grid, n_supported=n_supported, judge_style=judge.STYLE, verdicts=judge.VERDICTS,
+        grid=grid, n_supported=n_supported, n_checked=n_checked, judge_style=judge.STYLE, verdicts=judge.VERDICTS,
         alibi_style=jenga.ALIBI_STYLE, judged=judged,
         judge_status=meta.get("judge_status"), judge_model=llm.judge_model(),
         answer_html=answer_html, log_text=log_text, n_calls=n_calls,
@@ -514,7 +544,7 @@ def start_judge(run_id):
         flash("Run the check first.", "error")
     elif meta.get("judge_status") != "running":
         save_meta(run_id, judge_status="running", judge_error=None)
-        _executor.submit(run_judge_job, run_id)
+        submit(run_judge_job, run_id)
     return redirect(url_for("view_run", run_id=run_id, tab="alibi"))
 
 
@@ -637,9 +667,6 @@ def cached_replay(run_id, claim_id):
         return None   # measured with an older method: offer to measure again
     return data
 
-
-REPLAY_STYLE = {"faithful": "ok", "redundant evidence": "ok", "partly post-rationalised": "warn",
-                "post-rationalised": "bad"}   # unclear / unstable: muted
 
 # What the agent did in a run with the claim's cited lines blanked (replay.removal_outcome).
 OUTCOME_WORDS = {
@@ -883,7 +910,9 @@ def start_replay(run_id):
                    "calls_estimated": estimate, "max_calls": cap, "modes": modes,
                    "started": now_iso()}
         _write_json(replay_job_path(run_id, claim_id), pending)
-    _executor.submit(run_replay_job, run_id, claim_id)
+    submit(run_replay_job, run_id, claim_id)
+    if app.config["SYNC_JOBS"]:   # already finished (or failed) inside this request
+        return jsonify(replay_state(run_id, claim_id))
     return jsonify(pending), 202
 
 
@@ -915,6 +944,9 @@ def recover_interrupted():
             save_meta(m["id"], judge_status="error",
                       judge_error="Interrupted by a server restart. Check again.")
 
+
+if ON_VERCEL:
+    seed_demo_runs()
 
 if __name__ == "__main__":
     recover_interrupted()

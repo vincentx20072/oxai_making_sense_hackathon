@@ -51,7 +51,9 @@ PDF lines: 100%, with a 95% interval of 76–100%.
 4. Code, not the model, gives each claim one of four verdicts, decided by its worst fact:
    **supported** (every fact is in the cited lines), **miscited** (every fact is in the PDF, but not
    all in the cited lines), **not found** or **contradicted**. The claim's type (document fact,
-   judgement or outside knowledge) is shown beside it but doesn't change the rule.
+   judgement or outside knowledge) is shown beside it. Only a document fact can be cited, so a
+   judgement or outside knowledge whose facts check out is marked **n/a**; a judgement resting
+   on a missing or contradicted fact is still flagged.
 
 The score is FActScore's precision:
 

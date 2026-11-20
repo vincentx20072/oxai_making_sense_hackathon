@@ -1,0 +1,31 @@
+{
+  "id": "28aea20e4904",
+  "source": "agent",
+  "question": "When was Veltrix Analytics founded? Answer in one sentence with a citation.",
+  "created": "2026-11-20T16:32:41+00:00",
+  "status": "done",
+  "files": [
+    {
+      "name": "invented_fact.pdf",
+      "size": 1290,
+      "pages": 1,
+      "has_text": true
+    }
+  ],
+  "model": "openai/gpt-oss-120b",
+  "auto_jenga": true,
+  "analysed": true,
+  "trust_score": 100,
+  "demo": "invented",
+  "started": "2026-11-20T16:32:41+00:00",
+  "finished": "2026-11-20T16:32:48+00:00",
+  "duration": 6.8,
+  "usage": null,
+  "cost_usd": null,
+  "analysis_error": null,
+  "verdict_counts": {
+    "grounded": 1
+  },
+  "n_claims": 1,
+  "judge_status": "unavailable"
+}

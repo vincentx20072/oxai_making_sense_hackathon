@@ -1,0 +1,31 @@
+{
+  "id": "c4c8ad5851e0",
+  "source": "agent",
+  "question": "When was Keble College, Oxford founded? Answer in one sentence with a citation.",
+  "created": "2026-11-20T16:32:48+00:00",
+  "status": "done",
+  "files": [
+    {
+      "name": "known_fact.pdf",
+      "size": 1316,
+      "pages": 1,
+      "has_text": true
+    }
+  ],
+  "model": "openai/gpt-oss-120b",
+  "auto_jenga": true,
+  "analysed": true,
+  "trust_score": 100,
+  "demo": "known",
+  "started": "2026-11-20T16:32:48+00:00",
+  "finished": "2026-11-20T16:32:51+00:00",
+  "duration": 3.0,
+  "usage": null,
+  "cost_usd": null,
+  "analysis_error": null,
+  "verdict_counts": {
+    "grounded": 1
+  },
+  "n_claims": 1,
+  "judge_status": "unavailable"
+}

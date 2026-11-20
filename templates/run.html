@@ -58,11 +58,12 @@
 {% endif %}
 
 {# One test's number line: the rate as a dot, its 95% interval shaded, the test's
-   zones labelled underneath.  l = app._numline(...) #}
+   zones labelled underneath.  l = app._numline(...).  Two siblings (the count,
+   then the line), so cards side by side can line both up on a shared grid. #}
 {% macro numline(l) -%}
-<div class="numline">
-  <div class="rp-s">{{ l.what }} in <b>{{ l.k }} of {{ l.n }} runs</b>
-    <span class="muted">· 95% interval {{ '%.0f'|format(l.lo) }}%–{{ '%.0f'|format(l.hi) }}%</span></div>
+<div class="nl-head">{{ l.what }} in <b>{{ l.k }} of {{ l.n }} runs</b>
+  <span class="muted">· 95% interval {{ '%.0f'|format(l.lo) }}%–{{ '%.0f'|format(l.hi) }}%</span></div>
+<div class="nl-body">
   <span class="ci-wrap">
     <span class="ci-bar ci-bar-wide">
       {% for x in l.ticks %}<span class="ci-mid" style="left:{{ x }}%"></span>{% endfor %}
@@ -84,7 +85,7 @@
 <nav class="tabs" role="tablist">
   <a class="tab {% if tab=='answer' %}is-active{% endif %}" href="?tab=answer">{{ icon('answer') }} Answer</a>
   <a class="tab {% if tab=='alibi' %}is-active{% endif %}" href="?tab=alibi">{{ icon('search') }} Alibi
-    {% if report and n_claims %}<span class="score-pill {{ ((100 * n_supported / n_claims)|int)|band }}" title="{{ n_supported }} of {{ n_claims }} claims supported">{{ n_supported }}/{{ n_claims }}</span>{% endif %}</a>
+    {% if report and n_checked %}<span class="score-pill {{ ((100 * n_supported / n_checked)|int)|band }}" title="{{ n_supported }} of {{ n_checked }} claims supported{% if n_checked < n_claims %} ({{ n_claims - n_checked }} judgement{{ 's' if n_claims - n_checked > 1 }}: n/a){% endif %}">{{ n_supported }}/{{ n_checked }}</span>{% endif %}</a>
   <a class="tab {% if tab=='jenga' %}is-active{% endif %}" href="?tab=jenga">{{ icon('blocks') }} Jenga
     {% if meta.analysed %}<span class="score-pill {{ meta.trust_score|band }}" title="Answer traceability: how well the answer traces back to the PDFs (not a rating of the documents)">{{ meta.trust_score }}</span>{% endif %}</a>
   <a class="tab {% if tab=='log' %}is-active{% endif %}" href="?tab=log">{{ icon('list') }} Agent log <span class="count">{{ n_calls }}</span></a>
@@ -147,7 +148,8 @@
   <p class="muted small verdict-key"><b>Supported</b>: every fact is in the lines it cites ·
     <b>Miscited</b>: every fact is in the PDF, but not all in the cited lines ·
     <b>Not found</b>: a fact isn't in the PDF ·
-    <b>Contradicted</b>: the PDF says otherwise</p>
+    <b>Contradicted</b>: the PDF says otherwise ·
+    <b>n/a</b>: a judgement or outside knowledge. Only document facts can be cited; a fact one of these rests on can still be not found or contradicted</p>
   {% endif %}
   {% if report %}
   {% if report.question_kind == 'judgement' %}
@@ -366,17 +368,17 @@
         <tr class="story-row">
           <td class="c-id">{{ c.id }}<span class="story-tag">replay</span></td>
           <td colspan="3">
-            <div class="rp-head"><span class="chip {{ replay_style.get(story.label, 'muted') }}">{{ story.label|capitalize }}</span>
-              <span class="rp-why">{{ story.headline }}</span></div>
+            <p class="rp-headline">{{ story.headline }}</p>
             {% if story.tests %}
             <div class="test-grid">
               {% for t in story.tests %}
+              {# always six parts, so the cards in a row share their row heights #}
               <section class="test-card">
                 <h4 class="test-title"><span class="test-n">{{ loop.index }}</span>{{ t.title }}</h4>
-                <p>{{ t.text }}</p>
-                {% if t.line %}{{ numline(t.line) }}{% endif %}
-                {% if t.note %}<p class="numline-note">{{ t.note }}</p>{% endif %}
-                {% if t.example %}<details class="test-example"><summary>Example answer</summary><div class="rp-text">{{ t.example }}</div></details>{% endif %}
+                <p class="test-text">{{ t.text }}</p>
+                {% if t.line %}{{ numline(t.line) }}{% else %}<div></div><div></div>{% endif %}
+                <div>{% if t.note %}<p class="numline-note">{{ t.note }}</p>{% endif %}</div>
+                <div>{% if t.example %}<details class="test-example"><summary>Example answer</summary><div class="rp-text">{{ t.example }}</div></details>{% endif %}</div>
               </section>
               {% endfor %}
             </div>

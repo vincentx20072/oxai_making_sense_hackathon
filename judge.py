@@ -16,8 +16,13 @@ verdict is its worst fact, one of four:
   miscited       every fact is in the PDF, but not all in the lines it cites
   supported      every fact is in the lines it cites
 
+  n/a            a judgement or outside knowledge whose facts check out: only
+                 a document fact can be cited, so supported / miscited don't apply
+
 The claim's kind (document fact / judgement / outside knowledge) is shown
-beside it; it doesn't change the rule.
+beside it.  Only document facts get supported or miscited; a judgement still
+gets not found or contradicted when a document fact it rests on is missing
+from the PDF or contradicted by it.
 
 One call per run (all claims at once, structured JSON output), cached in
 data/runs/<id>/judge.json.  Model: llm.judge_model() (claude-haiku-5-5).
@@ -80,8 +85,9 @@ SCHEMA = {
 }
 
 # verdict -> chip style (same bands as the rest of the UI)
-VERDICTS = ("supported", "miscited", "not found", "contradicted")   # best to worst
-STYLE = {"supported": "ok", "miscited": "warn", "not found": "bad", "contradicted": "bad"}
+VERDICTS = ("supported", "miscited", "not found", "contradicted", "n/a")   # best to worst, then n/a
+STYLE = {"supported": "ok", "miscited": "warn", "not found": "bad", "contradicted": "bad",
+         "n/a": "muted"}
 
 
 def _sig(report):
@@ -136,6 +142,10 @@ def score_claim(item, cited):
     kind = item.get("kind") or "document fact"
     if contra:
         verdict = "contradicted"
+    elif kind != "document fact":
+        # only a document fact can be cited: for a judgement or outside knowledge
+        # the citation question doesn't apply, only whether its premises hold
+        verdict = "not found" if len(sup) < len(atoms) else "n/a"
     elif not atoms or len(sup) < len(atoms):
         verdict = "not found"        # a fact missing, or nothing checkable
     elif len(in_cited) < len(located):
