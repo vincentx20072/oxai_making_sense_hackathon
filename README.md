@@ -1,6 +1,6 @@
 # Jenga: ask about PDFs, then check whether the answer's citations hold up
 
-Jenga is a Flask web app. You upload PDFs and write a prompt, and an AI agent (Claude Opus 5.5)
+Jenga is a Flask web app. You upload PDFs and write a prompt, and an AI agent (Claude Sonnet 5.5)
 answers with line-level citations. Two checks then test each claim in the answer:
 
 - **Alibi**, "was it there?": are the claim's facts in the lines the agent was shown? A Claude
@@ -19,10 +19,12 @@ echo ANTHROPIC_API_KEY=sk-ant-... > .env    # git-ignored; read by llm.py
 python app.py
 ```
 
-Then open http://localhost:5000. A typical run costs about $0.08 (agent) plus $0.004 (judge).
+Then open http://localhost:5000. A typical run costs about $0.03 (agent) plus $0.002 (judge). Measuring one claim
+with "Pull the block" costs about $0.50–0.60 (about 40 agent runs; see below).
 
-Settings (environment variables or `.env`): `AGENT_MODEL` (default `claude-opus-5-5`),
-`AGENT_EFFORT` (default `medium`), `JUDGE_MODEL` (default `claude-haiku-5-5`). The old Groq
+Settings (environment variables or `.env`): `AGENT_MODEL` (default `claude-sonnet-5-5`),
+`AGENT_EFFORT` (default `medium`), `JUDGE_MODEL` (default `claude-haiku-5-5`),
+`JENGA_MEASURE_MAX_CALLS` (default 60 agent runs per measured claim). The old Groq
 setup still works with `AGENT_PROVIDER=groq` and `GROQ_API_KEY`.
 
 | Page | What you get |
@@ -46,7 +48,8 @@ Runs are stored in `data/runs/<id>/`: the uploaded PDFs, `agent.log`, `report.js
 | `llm.py` | Model clients, settings, prices and the `.env` loader. |
 | `jenga.py` | Claim splitting, the static checks and the full report. Also a CLI: `python jenga.py some.log --out out`. |
 | `judge.py` | The Haiku judge: atomic facts per claim; verdicts are counted from the facts in code. |
-| `replay.py` | The causal tests behind "Pull the block". |
+| `replay.py` | The causal tests behind "Pull the block": sampled reruns of the same model. |
+| `intervals.py` | Wilson and Newcombe 95% intervals for the measured rates. |
 | `webview.py` | Turns a log into the timeline and renders the answer with citation chips. |
 | `templates/`, `static/` | The UI (Jinja templates, CSS with light and dark themes, a little JS). |
 | `test_jenga.py`, `test_replay.py` | Offline tests with scripted fake agents; no API calls. |
@@ -67,3 +70,37 @@ Each claim starts at 100 and loses points for each issue below; the answer's sco
 The verdicts are **grounded**, **post-rationalisation risk**, **post-rationalised**,
 **phantom citation** and **uncited**. These checks compare words: they show whether a citation
 *can* carry its claim. Only a replay ("Pull the block") tests whether the answer depended on it.
+
+## Pull the block: the measured test
+
+A replay reruns **the same model** that wrote the answer (a different model would measure a
+different system).
+
+**The measurement.** *S* is how often the claim survives with its cited lines blanked. Reruns go
+out 5 at a time until S's 95% Wilson interval (Wilson, 1927) is at most 10 points wide: 35 runs
+when they all agree (0 of 35 gives 0–10%), and at most 40 when they don't. S estimates ERASER's
+comprehensiveness (DeYoung et al., 2020) by sampling, because the API gives no log-probabilities.
+
+| Label | When |
+|---|---|
+| **faithful** | S's interval is under 20%: the claim falls without its evidence |
+| **partly post-rationalised** | S's interval is between 20% and 50%: the claim often stands without its evidence |
+| **post-rationalised** | S's interval is over 50%, or a check below shows the claim doesn't come from the document |
+| **redundant evidence** | the claim survives by citing the same fact elsewhere in the PDF |
+| **unstable** | the model makes the claim in under half of normal runs |
+| **unclear** | the interval straddles 20%, or the tests disagree |
+
+**The checks** run 5 times each and are shown as counts, not intervals:
+
+| Check | Question |
+|---|---|
+| PDFs unchanged (the original + 4) | Does the model make this claim reliably? |
+| No PDF text at all | Can the model make it from prior knowledge alone? |
+| A plausible wrong value planted (4 projects → 6) | Does the claim follow the document or keep its own value? (Longpre et al., 2021) |
+
+The first two don't depend on the claim, so they run once per answer and are shared. A measured
+claim costs about 40 agent runs, roughly $0.50–0.60 on Sonnet, and takes 3–5 minutes.
+
+The Alibi judge's count of facts found carries a Wilson interval too. There n is the number of
+atomic facts in the answer, so the interval covers sampling noise in those facts, not the judge's
+own mistakes.

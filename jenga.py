@@ -884,7 +884,20 @@ def _causal_html(c):
     if not k:
         return ""
     rows = []
-    if k.get("E") is not None:
+    st = k.get("stats") or {}
+    s = st.get("survive")
+    if s and s.get("ci"):
+        rows.append(f'<div class="sub"><b>Cited lines blanked:</b> the claim survived in {s["k"]} '
+                    f'of {s["n"]} runs (95% CI {s["ci"][0]:.0%}&ndash;{s["ci"][1]:.0%})</div>')
+    checks = {"full": "PDFs unchanged: claim made", "closed": "No PDF text: claim made",
+              "memorise": "Wrong value planted: kept its own value"}
+    for key, name in checks.items():
+        r = st.get(key)
+        if r and r.get("n"):
+            rows.append(f'<div class="sub">{esc(name)} in {r["k"]} of {r["n"]} runs</div>')
+    if k.get("reason"):
+        rows.append(f'<div class="sub">{esc(k["label"])}: {esc(k["reason"])}</div>')
+    if k.get("E") is not None and not st:
         rows.append(_bar("E (causal share)", k["E"],
                          "Drop rate of the claim when all cited spans are removed"))
     if k.get("F") is not None:
@@ -915,7 +928,7 @@ def jenga_use(c):
     """Jenga axis of the 2x2: ("used" | "not used", source).  The replay label
     decides when it is conclusive; otherwise the static timing signal does."""
     lab = (c.get("causal") or {}).get("label")
-    if lab == "faithful":
+    if lab in ("faithful", "redundant evidence"):   # redundant: the fact is cited twice
         return "used", "replay"
     if lab == "post-rationalised":
         return "not used", "replay"

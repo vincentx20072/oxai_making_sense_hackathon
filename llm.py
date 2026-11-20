@@ -4,7 +4,7 @@ Model clients and settings.
     make_client()    Anthropic client by default (Claude).  Groq / an
                      OpenAI-compatible endpoint only when AGENT_PROVIDER=groq
                      or AGENT_BASE_URL is set (the old hackathon setup).
-    default_model()  AGENT_MODEL, else claude-opus-5-5 (Groq: gpt-oss-120b).
+    default_model()  AGENT_MODEL, else claude-sonnet-5-5 (Groq: gpt-oss-120b).
     agent_effort()   AGENT_EFFORT, else "medium".
     judge_model()    JUDGE_MODEL, else claude-haiku-5-5 (used by judge.py).
     cost_usd(model, usage)  dollars for a usage dict (see PRICES).
@@ -16,7 +16,7 @@ Credentials: ANTHROPIC_API_KEY from the environment, or from a git-ignored
 import os
 from pathlib import Path
 
-ANTHROPIC_MODEL = "claude-opus-5-5"
+ANTHROPIC_MODEL = "claude-sonnet-5-5"   # the agent and its replays (same model, so replays measure it)
 ANTHROPIC_JUDGE = "claude-haiku-5-5"
 GROQ_MODEL = "openai/gpt-oss-120b"
 FALLBACK_MODEL = "openai/gpt-oss-20b"   # Groq fallback, kept for the old setup

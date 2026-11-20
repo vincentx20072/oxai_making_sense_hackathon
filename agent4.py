@@ -37,7 +37,7 @@ import llm
 # CONFIGURATION
 # ============================================================
 
-# Model and client come from llm.py: Claude Opus 5.5 (effort medium) by
+# Model and client come from llm.py: Claude Sonnet 5.5 (effort medium) by
 # default; AGENT_MODEL / AGENT_EFFORT / AGENT_PROVIDER override.  MODEL is kept
 # for app.py/replay.py.
 MODEL = llm.default_model()

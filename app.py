@@ -14,10 +14,13 @@ Flow
                agent, and do they hold the claim's keywords.
        Jenga   "did it use it?": layer 1 is the static analysis of the log
                (NO extra model calls); layer 2, "Pull the block", reruns the
-               agent with the cited lines blanked and the claim's value
-               planted (replay.replay_claim).  It is opt-in, per claim, capped
-               at JENGA_REPLAY_MAX_CALLS agent runs, and cached under
-               data/runs/<id>/replay/, so a second click costs nothing.
+               same model and reports how often the claim survives with its
+               cited lines blanked, to within a 10-point 95% interval (35-40
+               runs, 5 at a time), plus three 5-run checks: PDFs unchanged,
+               no PDF text, a wrong value planted (replay.measure_claim).
+               It is opt-in, per claim, capped at JENGA_MEASURE_MAX_CALLS
+               agent runs, and cached under data/runs/<id>/replay/, so a
+               second click costs nothing.
                Ends with the Alibi x Jenga 2x2.
        Agent log  the agent's run as a timeline (or raw), with cited lines marked.
 
@@ -446,7 +449,7 @@ def view_run(run_id):
                    if run and run["answer"] else "")
     n_calls = sum(1 for t in turns for i in t["items"] if i["type"] in ("call", "select"))
 
-    replays, estimates, grid, n_supported, judged = {}, {}, None, 0, None
+    replays, estimates, grid, n_supported, judged, unit_cost = {}, {}, None, 0, None, None
     if report:
         for c in report["claims"]:
             c["flags"] = claim_flags(c)
@@ -454,6 +457,8 @@ def view_run(run_id):
             c["used"], c["used_source"] = jenga.jenga_use(c)
         judged = load_judge(run_id, report)
         if judged:
+            if "ci" not in judged.get("totals", {}):   # judged before intervals existed
+                judge.with_interval(judged.setdefault("totals", {}))
             for c in report["claims"]:
                 c["judge"] = judged["claims"].get(c["id"])
                 if c["judge"] and c.get("alibi") != "phantom":
@@ -461,11 +466,13 @@ def view_run(run_id):
         n_supported = sum(1 for c in report["claims"] if c.get("alibi") == "supported")
         grid = alibi_grid(report["claims"])
         if tab == "jenga":
-            estimates = replay_estimates(report)
+            estimates = replay_estimates(report, run_id)
+            unit_cost = replay_unit_cost(run_id, meta)
             replays = {c["id"]: replay_state(run_id, c["id"])["status"] for c in report["claims"]}
     return render_template(
         "run.html", meta=meta, run=run, turns=turns, report=report, tab=tab,
-        replays=replays, estimates=estimates, max_replay_calls=replay.max_calls_default(),
+        replays=replays, estimates=estimates, max_replay_calls=replay.measure_max_calls(),
+        unit_cost=unit_cost,
         grid=grid, n_supported=n_supported, judge_style=judge.STYLE,
         alibi_style=jenga.ALIBI_STYLE, judged=judged,
         judge_status=meta.get("judge_status"), judge_model=llm.judge_model(),
@@ -619,7 +626,22 @@ def _read_json(path):
 def cached_replay(run_id, claim_id):
     """The finished ReplayResult for this claim, or None."""
     data = _read_json(replay_path(run_id, claim_id))
-    return data if data and data.get("status") == "done" else None
+    if not data or data.get("status") != "done":
+        return None
+    if data.get("method") == "measured" and data.get("design") != replay.MEASURE_DESIGN:
+        return None   # measured with an older method: offer to measure again
+    return data
+
+
+def replay_unit_cost(run_id, meta):
+    """$ per replay run: the average so far for this answer (replays read the
+    prompt cache, so they cost less than the original run), else the original."""
+    cost = calls = 0
+    for f in (run_path(run_id) / "replay" / "measure").glob("*.json"):
+        r = _read_json(f) or {}
+        if r.get("calls_used") and r.get("cost_usd"):
+            cost, calls = cost + r["cost_usd"], calls + r["calls_used"]
+    return cost / calls if calls else meta.get("cost_usd")
 
 
 def replay_state(run_id, claim_id):
@@ -638,19 +660,21 @@ def replay_state(run_id, claim_id):
         return {"run_id": run_id, "claim_id": claim_id, "status": "none"}
 
 
-def replay_estimates(report):
-    """{claim_id: agent runs a default replay would make} for the Jenga tab."""
-    return {c["id"]: replay.estimate_calls(report, c["id"], DEFAULT_REPLAY_MODES)
+def replay_estimates(report, run_id):
+    """{claim_id: (usual, worst case) agent runs a measurement would make}.
+    The first claim measured also pays for the run's shared baselines."""
+    d = runs_dir() / run_id
+    return {c["id"]: replay.measure_estimate(d, report, c["id"])
             for c in report.get("claims", [])}
 
 
-def run_replay_job(run_id, claim_id, modes, plant_override):
+def run_replay_job(run_id, claim_id, modes=None, plant_override=None):
     d = runs_dir() / run_id / "replay"
     job_path = d / f"{claim_id}.job.json"
     result, error = None, None
     try:
-        result = replay.replay_claim(run_id, claim_id, modes=modes,
-                                     plant_override=plant_override, runs_root=runs_dir())
+        # sampled: k=5 runs per condition (10 if they disagree), 95% intervals
+        result = replay.measure_claim(run_id, claim_id, runs_root=runs_dir())
         if result.get("status") != "done":
             raise RuntimeError(result.get("error") or f"replay ended with status {result.get('status')}")
     except Exception as e:
@@ -685,16 +709,15 @@ def start_replay(run_id):
     if cached:  # served from disk: no API calls
         return jsonify({**cached, "cached": True, "calls_used": 0})
 
-    modes = [m for m in (body.get("modes") or DEFAULT_REPLAY_MODES)
-             if m in REPLAY_MODES] or list(DEFAULT_REPLAY_MODES)
-    plant_override = str(body.get("plant_override") or "").strip()[:200] or None
-    estimate = replay.estimate_calls(report, claim_id, modes)
-    cap = replay.max_calls_default()
+    modes = list(DEFAULT_REPLAY_MODES)
+    estimate, worst = replay.measure_estimate(d, report, claim_id)
+    cap = replay.measure_max_calls()
     if estimate == 0:
-        return jsonify({"error": "This claim cites no lines, so there is no block to pull."}), 400
-    if estimate > cap:
-        return jsonify({"error": f"This replay needs {estimate} agent runs; the cap is {cap} "
-                                 "(JENGA_REPLAY_MAX_CALLS)."}), 400
+        return jsonify({"error": "This claim cites no lines, or has no names or numbers to "
+                                 "track across reruns, so there is no block to pull."}), 400
+    if worst > cap:
+        return jsonify({"error": f"This measurement can need {worst} agent runs; the cap is "
+                                 f"{cap} (JENGA_MEASURE_MAX_CALLS)."}), 400
 
     with _replay_lock:
         key = (run_id, claim_id)
@@ -705,7 +728,7 @@ def start_replay(run_id):
                    "calls_estimated": estimate, "max_calls": cap, "modes": modes,
                    "started": now_iso()}
         _write_json(replay_job_path(run_id, claim_id), pending)
-    _executor.submit(run_replay_job, run_id, claim_id, modes, plant_override)
+    _executor.submit(run_replay_job, run_id, claim_id)
     return jsonify(pending), 202
 
 

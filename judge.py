@@ -21,6 +21,7 @@ data/runs/<id>/judge.json.  Model: llm.judge_model() (claude-haiku-5-5).
 import hashlib
 import json
 
+import intervals
 import jenga
 import llm
 
@@ -178,12 +179,21 @@ def judge_run(run, report, client, model=None):
                 a["refs"] = [f"p{labels[l][0]} L{labels[l][1]}" for l in a["lines"] if l in labels]
             claims[c["id"]] = res
     facts = [r for r in claims.values() if r["n_atoms"]]
+    totals = {"atoms": sum(r["n_atoms"] for r in facts),
+              "supported": sum(r["n_supported"] for r in facts),
+              "contradicted": sum(r["n_contradicted"] for r in facts),
+              "verdicts": _count(r["verdict"] for r in claims.values())}
     return {"model": getattr(response, "model", model), "sig": _sig(report),
             "usage": usage, "cost_usd": llm.cost_usd(model, usage), "claims": claims,
-            "totals": {"atoms": sum(r["n_atoms"] for r in facts),
-                       "supported": sum(r["n_supported"] for r in facts),
-                       "contradicted": sum(r["n_contradicted"] for r in facts),
-                       "verdicts": _count(r["verdict"] for r in claims.values())}}
+            "totals": with_interval(totals)}
+
+
+def with_interval(totals):
+    """Add the 95% Wilson interval for the share of atomic facts found (FActScore
+    precision).  It treats each fact as one check, so it covers sampling noise
+    in this answer's facts, not the judge's own mistakes."""
+    totals["ci"] = intervals.wilson(totals.get("supported", 0), totals.get("atoms", 0))
+    return totals
 
 
 def _count(xs):

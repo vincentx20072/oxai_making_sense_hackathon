@@ -142,7 +142,8 @@
   <div class="judge-bar small" id="judge-bar" data-run="{{ meta.id }}" data-status="{{ judge_status or '' }}">
     {% if judged %}
       {% set t = judged.totals %}
-      <span><b>Judge ({{ judged.model }})</b>: {{ t.supported }} of {{ t.atoms }} atomic facts found in the PDF lines{% if t.contradicted %}, <b class="bad-t">{{ t.contradicted }} contradicted</b>{% endif %}.</span>
+      <span><b>Judge ({{ judged.model }})</b>: {{ t.supported }} of {{ t.atoms }} atomic facts found in the PDF lines{% if t.ci %}
+        <span class="ci" title="95% Wilson interval: with only {{ t.atoms }} facts, the true extraction rate could be anywhere in this range. It covers sampling noise, not the judge's own mistakes.">(95% CI {{ '%.0f'|format(t.ci[0] * 100) }}–{{ '%.0f'|format(t.ci[1] * 100) }}%)</span>{% endif %}{% if t.contradicted %}, <b class="bad-t">{{ t.contradicted }} contradicted</b>{% endif %}.</span>
       <span class="muted">{% if judged.cost_usd is not none %}${{ '%.4f'|format(judged.cost_usd) }}{% endif %}</span>
       <form method="post" action="{{ url_for('start_judge', run_id=meta.id) }}" class="inline"><button class="btn btn-ghost" type="submit">Re-check</button></form>
     {% elif judge_status == 'running' %}
@@ -319,7 +320,7 @@
       <thead><tr><th>#</th><th>Claim</th><th>Tower</th><th>Verdict</th></tr></thead>
       {% for c in report.claims %}
       {% set vs = verdict_style.get(c.verdict, ('muted', c.verdict)) %}
-      {% set est = estimates.get(c.id, 0) %}
+      {% set est, worst = estimates.get(c.id, (0, 0)) %}
       {% set rstate = replays.get(c.id, 'none') %}
       {% set lab = (c.causal or {}).get('label') %}
       <tbody class="claim" data-claim="{{ c.id }}" data-state="{{ rstate }}">
@@ -345,15 +346,15 @@
           </td>
           <td class="c-verdict">
             <span class="chip {{ vs[0] }}">{{ vs[1] }}</span>
-            {% if lab %}<div class="pull-lab"><span class="muted small">replay:</span> <span class="chip {{ {'faithful': 'ok', 'post-rationalised': 'bad'}.get(lab, 'muted') }}">{{ lab }}</span></div>{% endif %}
-            {% if est and est <= max_replay_calls %}
+            {% if lab %}<div class="pull-lab"><span class="muted small">replay:</span> <span class="chip {{ {'faithful': 'ok', 'redundant evidence': 'ok', 'post-rationalised': 'bad', 'partly post-rationalised': 'warn'}.get(lab, 'muted') }}">{{ lab }}</span></div>{% endif %}
+            {% if est and worst <= max_replay_calls %}
             <button type="button" class="btn small pull-btn" data-claim="{{ c.id }}" data-est="{{ est }}"
               aria-controls="rp-{{ c.id }}">{{ icon('blocks') }} <span class="pull-label">{% if rstate == 'done' %}Show replay{% else %}Pull the block{% endif %}</span></button>
-            <div class="pull-cost small" data-cost>
+            <div class="pull-cost small" data-cost title="35 reruns with the cited lines blanked (40 if they disagree), 5 at a time, plus 5-run checks. The first claim you pull also pays for the answer's shared checks (PDFs unchanged, no PDF text).">
               {% if rstate == 'done' %}Cached: 0 API calls
-              {% else %}{{ est }} agent run{{ '' if est == 1 else 's' }}{% if meta.cost_usd %} · ~${{ '%.2f'|format(est * meta.cost_usd) }}{% endif %}{% endif %}
+              {% else %}{{ est }}–{{ worst }} agent runs{% if unit_cost %} · ~${{ '%.2f'|format(est * unit_cost) }}–{{ '%.2f'|format(worst * unit_cost) }}{% endif %}{% endif %}
             </div>
-            {% elif est %}<div class="pull-cost small">Needs {{ est }} agent runs (cap {{ max_replay_calls }})</div>
+            {% elif est %}<div class="pull-cost small">Needs up to {{ worst }} agent runs (cap {{ max_replay_calls }})</div>
             {% endif %}
           </td>
         </tr>
