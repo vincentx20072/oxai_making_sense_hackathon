@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{% block title %}Jenga{% endblock %} · Jenga</title>
+<title>{% block title %}Jalibi{% endblock %} · Jalibi</title>
 <script>try{var t=localStorage.getItem("jenga-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}</script>
 <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='22' width='24' height='6' rx='1.5' fill='%233b5bdb'/%3E%3Crect x='8' y='14' width='24' height='6' rx='1.5' fill='%239aaef0'/%3E%3Crect x='2' y='6' width='24' height='6' rx='1.5' fill='%233b5bdb'/%3E%3C/svg%3E">
@@ -15,7 +15,7 @@
   <aside class="side" id="side">
     <a class="brand" href="{{ url_for('index') }}">
       <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="22" width="24" height="6" rx="1.5" fill="var(--acc)"/><rect x="8" y="14" width="22" height="6" rx="1.5" fill="var(--acc2)"/><rect x="2" y="6" width="24" height="6" rx="1.5" fill="var(--acc)"/></svg>
-      <span>Jenga</span>
+      <span>Jalibi</span>
     </a>
     <a class="btn btn-primary btn-block" href="{{ url_for('index') }}">{{ icon('plus') }} New question</a>
     <a class="side-link {% if active == 'import' %}is-active{% endif %}" href="{{ url_for('import_log') }}">{{ icon('upload') }} Analyse an existing log</a>

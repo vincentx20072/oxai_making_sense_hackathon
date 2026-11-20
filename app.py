@@ -2,7 +2,7 @@
 Jenga web app: ask questions about PDFs, then check the answer's trust.
 
     pip install -r requirements.txt
-    export GROQ_API_KEY=...
+    export ANTHROPIC_API_KEY=...
     python app.py                      # http://localhost:5000
 
 Flow
@@ -215,7 +215,8 @@ def filesize(n):
 @app.context_processor
 def inject_globals():
     return {"history": all_runs(), "model": agent4.MODEL,
-            "has_key": bool(os.environ.get("GROQ_API_KEY"))
+            "has_key": bool(os.environ.get("ANTHROPIC_API_KEY")
+                            or os.environ.get("CLAUDE_API_KEY"))
             or app.config["CLIENT_FACTORY"] is not agent4.make_client,
             "max_files": MAX_FILES, "max_mb": MAX_TOTAL_MB,
             "verdict_style": jenga.VERDICT_STYLE}

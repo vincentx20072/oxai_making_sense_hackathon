@@ -2,7 +2,7 @@
 Pilot evaluation: original + plant + remove-all per question.
 
     python eval/run_eval.py --dry-run      # offline: real agent4 + jenga + replay, FakeClient, 0 API calls
-    python eval/run_eval.py                # real run on Groq (T09): ~4 agent runs per question
+    python eval/run_eval.py                # real run on Claude: ~4 agent runs per question
     python eval/run_eval.py --only K01,I01 # subset
 
 For each EvalQuestion we build a one-page PDF from its `text`, run agent4.run_agent on it,

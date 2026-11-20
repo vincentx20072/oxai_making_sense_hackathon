@@ -2,7 +2,7 @@
 Pre-create the demo runs so the live demo opens them from History by id.
 
     python demo/make_demo_pdfs.py
-    python demo/make_demo_runs.py                 # both questions, real model (GROQ_API_KEY)
+    python demo/make_demo_runs.py                 # both questions, real model (ANTHROPIC_API_KEY)
     python demo/make_demo_runs.py --only known    # one question
     python demo/make_demo_runs.py --replay        # also cache "Pull the block" for the claim
     python demo/make_demo_runs.py --fake          # offline smoke test, scripted agent, no API

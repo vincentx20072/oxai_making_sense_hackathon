@@ -4,12 +4,12 @@
 {% block main %}
 <header class="page-head">
   <h1>Ask about your PDFs</h1>
-  <p class="muted">The agent reads your documents, answers with citations, and Jenga then checks whether
+  <p class="muted">The agent reads your documents, answers with citations, and Jalibi then checks whether
     each citation really carries its claim.</p>
 </header>
 
 {% if not has_key %}
-<div class="flash flash-error">{{ icon('alert') }} <span><code>GROQ_API_KEY</code> is not set on the server, so the agent can't run. Set it and restart the app. You can still <a href="{{ url_for('import_log') }}">analyse an existing log</a>.</span></div>
+<div class="flash flash-error">{{ icon('alert') }} <span><code>ANTHROPIC_API_KEY</code> is not set on the server, so the agent can't run. Set it and restart the app. You can still <a href="{{ url_for('import_log') }}">analyse an existing log</a>.</span></div>
 {% endif %}
 
 <form class="card form" method="post" action="{{ url_for('create_run') }}" enctype="multipart/form-data" id="run-form">
@@ -45,7 +45,7 @@
   <label class="switch">
     <input type="checkbox" name="auto_jenga" checked>
     <span class="track"><span class="thumb"></span></span>
-    <span><strong>Check the answer with Jenga when it finishes</strong><br>
+    <span><strong>Check the answer with Jalibi when it finishes</strong><br>
       <span class="muted small">Static analysis of the agent's log. No extra API calls.</span></span>
   </label>
 
@@ -58,7 +58,7 @@
 <section class="how">
   <div class="how-item"><span class="how-n">1</span><div><strong>Agent reads</strong><p class="muted small">Searches and reads your PDFs with tools, then selects evidence.</p></div></div>
   <div class="how-item"><span class="how-n">2</span><div><strong>Answer with citations</strong><p class="muted small">Every claim points to the page and line it relies on.</p></div></div>
-  <div class="how-item"><span class="how-n">3</span><div><strong>Jenga checks it</strong><p class="muted small">Pulls each cited line out to see if the claim still stands, and flags post-rationalisation.</p></div></div>
+  <div class="how-item"><span class="how-n">3</span><div><strong>Jalibi checks it</strong><p class="muted small">Pulls each cited line out to see if the claim still stands, and flags post-rationalisation.</p></div></div>
 </section>
 {% endblock %}
 {% block scripts %}<script>initRunForm({{ 1 if reuse else 0 }}, {{ max_files }}, {{ max_mb }});</script>{% endblock %}

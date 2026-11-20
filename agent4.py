@@ -37,7 +37,7 @@ import llm
 # CONFIGURATION
 # ============================================================
 
-# Model and client come from llm.py: Groq openai/gpt-oss-120b by default,
+# Model and client come from llm.py: Anthropic Claude by default,
 # AGENT_MODEL / AGENT_BASE_URL override.  MODEL is kept for app.py/replay.py.
 MODEL = llm.default_model()
 make_client = llm.make_client
@@ -470,7 +470,7 @@ def run_agent(question, *, files_dir=FILES_DIR, hidden_lines=None, plants=None,
 
 if __name__ == "__main__":
     print("\nPDF Evidence Agent (Jenga-instrumented)\n" + "-" * 39)
-    endpoint = os.environ.get("AGENT_BASE_URL") or "Groq"
+    endpoint = os.environ.get("AGENT_BASE_URL") or "Anthropic Claude"
     print(f"Model: {MODEL} via {endpoint}\nPDF directory: {FILES_DIR}\nAudit log: {LOG_FILE}\n")
     q = input("Question: ")
     print("\nInvestigating PDFs...\n")

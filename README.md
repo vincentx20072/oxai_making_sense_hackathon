@@ -16,7 +16,7 @@ pip install -r requirements.txt
 ```
 
 ```bash
-export GROQ_API_KEY=...
+export ANTHROPIC_API_KEY=...
 ```
 
 ```bash

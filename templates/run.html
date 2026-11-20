@@ -89,7 +89,7 @@
         <a class="btn btn-block" href="?tab=trust">See the full trust report</a>
       {% elif meta.status == 'done' %}
         <p class="muted small">Check whether each citation actually carries its claim. Uses the log only, with no API calls.</p>
-        <form method="post" action="{{ url_for('analyse', run_id=meta.id) }}"><button class="btn btn-primary btn-block" type="submit">Run Jenga analysis</button></form>
+        <form method="post" action="{{ url_for('analyse', run_id=meta.id) }}"><button class="btn btn-primary btn-block" type="submit">Run Jalibi analysis</button></form>
       {% else %}<p class="muted small">Available when the agent finishes.</p>{% endif %}
     </section>
     {% if run and run.selected %}
@@ -162,15 +162,15 @@
       <a class="btn btn-ghost small" href="{{ url_for('jenga_report', run_id=meta.id) }}" target="_blank" rel="noopener">Open report in new tab</a>
     </div>
   </section>
-  <iframe class="report-frame" id="report-frame" src="{{ url_for('jenga_report', run_id=meta.id, embed=1) }}" title="Jenga trust report"></iframe>
+  <iframe class="report-frame" id="report-frame" src="{{ url_for('jenga_report', run_id=meta.id, embed=1) }}" title="Jalibi trust report"></iframe>
   {% elif meta.status == 'done' %}
   <section class="card cta">
     {{ icon('shield', 32) }}
-    <h2>Check this answer with Jenga</h2>
-    <p class="muted">Jenga reads the agent's log and checks, claim by claim, whether each citation was shown to the agent,
+    <h2>Check this answer with Jalibi</h2>
+    <p class="muted">Jalibi reads the agent's log and checks, claim by claim, whether each citation was shown to the agent,
       whether it contains the claim's facts, which cited lines are load-bearing, and whether the agent wrote a value before it saw it.
       It makes no API calls.</p>
-    <form method="post" action="{{ url_for('analyse', run_id=meta.id) }}"><button class="btn btn-primary" type="submit">Run Jenga analysis</button></form>
+    <form method="post" action="{{ url_for('analyse', run_id=meta.id) }}"><button class="btn btn-primary" type="submit">Run Jalibi analysis</button></form>
   </section>
   {% else %}
   <section class="card cta"><p class="muted">The trust check is available once the agent has finished.</p></section>
